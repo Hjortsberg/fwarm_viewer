@@ -81,17 +81,28 @@ sudo apt-get install libopenni2-dev
 ```
 * Make build directory
 ```
-mkdir build 
+mkdir build && cd build
+```
+
+* Change to libfreenect2 build dir
+```
+cd ~/libcreenect2/build
 ```
 * Make using iai_kinect2 build command
 ```
 cmake .. -DENABLE_CXX11=ON
 make
-make install 
+sudo make install 
 ```
-* Edit CMakeLists.txt in libfreenect2
+* Clone and install
 ```
-cd ~/libfreenect2
+cd ~/catkin_ws/src/
+git clone https://github.com/code-iai/iai_kinect2.git
+cd iai_kinect2
+```
+* Edit CMakeLists.txt in kinect2_registration
+```
+cd kinect2_registration
 vim +56 CMakeLists.txt
 ```
 * Paste the following line
@@ -99,4 +110,9 @@ vim +56 CMakeLists.txt
 add_definitions( -fexceptions )
 ```
 Dont forget to :wq.
-
+```
+cd ..
+rosdep install -r --from-paths .
+cd ~/catkin_ws
+catkin_make -DCMAKE_BUILD_TYPE="kinetic"
+```
