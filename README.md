@@ -115,4 +115,9 @@ cd ..
 rosdep install -r --from-paths .
 cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE="kinetic"
+```  
+
+To get supported ```usb_cam``` resolutions and framerates: 
+```
+v4l2-ctl --list-formats-ext
 ```
