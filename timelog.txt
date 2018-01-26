@@ -7,4 +7,4 @@ Date      | Man-Hours | Category |  Participants
                         S1T2(5h) |  ALL
 18-01-25  | 15        | S1T2     |  All
 18-01-25  | 2,5       | Ulf      |  All
-18-01-26  |           | S1T2     |  E,G
+18-01-26  | 6         | S1T2     |  E,G
