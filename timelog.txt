@@ -1,0 +1,4 @@
+Time log over actual hours.
+Date      | Man-Hours | Category |  Participants
+18-01-25  | 15        | S1T2     |  All
+18-01-25  | 2,5       | Ulf      |  All
