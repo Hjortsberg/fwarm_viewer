@@ -85,3 +85,7 @@ rosdep install -r --from-paths --rosdistro kinetic .
 cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE="kinetic"
 
+echo "Seting up correct USB permissions"
+sudo cp ~/catkin_ws/libfreenect2/platform/linux/udev/90-kinect2.rules /etc/udev/rules.d/
+
+
