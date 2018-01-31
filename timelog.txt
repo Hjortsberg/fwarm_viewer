@@ -11,3 +11,4 @@ Date      | Man-Hours | Category |  Participants
 
 18-01-29  | 7         | S1T2,S1T3|  E,G,J,P
 18-01-30  | 4         | Trying to fix regression issues(kinect2_bridge launch file no longer works)|  E
+18-01-30  | 10,5      | Trying to fix regression issues, S1T2|  E,G,P
