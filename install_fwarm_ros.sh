@@ -4,6 +4,14 @@ clear
 
 echo "Starting install of FWARM ROS software"
 
+echo "Check if git is installed"
+if hash git 2>/dev/null; then
+  echo "No git install found, installing."
+  sudo apt-get --yes install git 
+else
+  echo "found git"
+fi
+
 echo "Update sources."
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'  
 
