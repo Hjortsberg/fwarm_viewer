@@ -60,7 +60,7 @@ echo "Make build directory"
 mkdir build && cd build
 
 echo "Change to libfreenect2 build dir"
-cd ~/libcreenect2/build
+cd ~/libfreenect2/build
 
 echo "Make using iai_kinect2 build command"
 cmake .. -DENABLE_CXX11=ON
