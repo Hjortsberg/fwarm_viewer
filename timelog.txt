@@ -14,3 +14,5 @@ Date      | Man-Hours | Category |  Participants
 18-01-30  | 10,5      | Trying to fix regression issues, S1T2|  E,G,P
 18-02-01  | 15        | S1T2, Resizing and trying to fix color inversion |  E, G, J, P
 18-02-02  | 12        | Planning presentation |  E, G, J, P
+18-02-05  | 7.5       | Planning presentation |  E, D, J, P
+18-02-06  | 3         | Planning presentation |  E
