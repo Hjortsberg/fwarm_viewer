@@ -16,3 +16,5 @@ Date      | Man-Hours | Category |  Participants
 18-02-02  | 12        | Planning presentation |  E, G, J, P
 18-02-05  | 7.5       | Planning presentation |  E, D, J, P
 18-02-06  | 3         | Planning presentation |  E
+18-02-07  | 15        | Planning presentation |  ALL
+18-02-08  | 7         | Planning presentation |  ALL
