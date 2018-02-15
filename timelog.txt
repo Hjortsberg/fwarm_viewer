@@ -18,3 +18,4 @@ Date      | Man-Hours | Category |  Participants
 18-02-06  | 3         | Planning presentation |  E
 18-02-07  | 15        | Planning presentation |  ALL
 18-02-08  | 7         | Planning presentation |  ALL
+18-02-15  | 10        | Sprintplanning and development | E, G, P, D
