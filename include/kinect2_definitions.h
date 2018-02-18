@@ -19,7 +19,7 @@
 #ifndef __KINECT2_DEFINITIONS_H__
 #define __KINECT2_DEFINITIONS_H__
 
-//#include "kinect2_console.h"
+#include "kinect2_console.h"
 
 #define K2_DEFAULT_NS          "kinect2"
 
