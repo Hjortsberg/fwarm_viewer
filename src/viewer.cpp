@@ -27,6 +27,8 @@
 #include <chrono>
 
 #include <opencv2/opencv.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/core/core.hpp>
 
 #include <ros/ros.h>
 #include <ros/spinner.h>
@@ -48,12 +50,10 @@
 class Receiver
 {
 public:
-  enum Mode
-  {
-    IMAGE = 0,
-    CLOUD,
-    BOTH
-  };
+	enum Mode
+	{
+	  IMAGE = 0
+	};
 
 private:
   std::mutex lock;
@@ -93,7 +93,7 @@ public:
   Receiver(const std::string &topicColor, const std::string &topicDepth, const bool useExact, const bool useCompressed)
     : topicColor(topicColor), topicDepth(topicDepth), useExact(useExact), useCompressed(useCompressed),
       updateImage(false), updateCloud(false), save(false), running(false), frame(0), queueSize(5),
-      nh("~"), spinner(0), it(nh), mode(CLOUD)
+      nh("~"), spinner(0), it(nh), mode(IMAGE)
   {
     cameraMatrixColor = cv::Mat::zeros(3, 3, CV_64F);
     cameraMatrixDepth = cv::Mat::zeros(3, 3, CV_64F);
@@ -155,17 +155,7 @@ private:
     }
     createLookup(this->color.cols, this->color.rows);
 
-    switch(mode)
-    {
-    case CLOUD:
-      break;
-    case IMAGE:
       imageViewer();
-      break;
-    case BOTH:
-      imageViewerThread = std::thread(&Receiver::imageViewer, this);
-      break;
-    }
   }
 
   void stop()
@@ -187,10 +177,6 @@ private:
     delete subCameraInfoDepth;
 
     running = false;
-    if(mode == BOTH)
-    {
-      imageViewerThread.join();
-    }
   }
 
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
@@ -232,7 +218,7 @@ private:
     const int lineText = 1;
     const int font = cv::FONT_HERSHEY_SIMPLEX;
 
-    cv::namedWindow("Image Viewer");
+    cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
     oss << "starting...";
 
     start = std::chrono::high_resolution_clock::now();
@@ -278,10 +264,6 @@ private:
         if(mode == IMAGE)
         {
           saveImages(color, depth, depthDisp);
-        }
-        else
-        {
-          save = true;
         }
         break;
       }
@@ -426,7 +408,7 @@ int main(int argc, char **argv)
   std::string topicDepth = K2_TOPIC_QHD K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
   bool useExact = true;
   bool useCompressed = false;
-  Receiver::Mode mode = Receiver::CLOUD;
+  Receiver::Mode mode = Receiver::IMAGE;
 
   for(size_t i = 1; i < (size_t)argc; ++i)
   {
@@ -466,18 +448,6 @@ int main(int argc, char **argv)
     else if(param == "compressed")
     {
       useCompressed = true;
-    }
-    else if(param == "image")
-    {
-      mode = Receiver::IMAGE;
-    }
-    else if(param == "cloud")
-    {
-      mode = Receiver::CLOUD;
-    }
-    else if(param == "both")
-    {
-      mode = Receiver::BOTH;
     }
     else
     {
