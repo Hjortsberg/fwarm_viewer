@@ -218,7 +218,9 @@ private:
     const int lineText = 1;
     const int font = cv::FONT_HERSHEY_SIMPLEX;
 
-    cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+	//cv::WindowFlags::WINDOWS_KEEPRATIO
+    cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
+    cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
     oss << "starting...";
 
     start = std::chrono::high_resolution_clock::now();
@@ -243,11 +245,10 @@ private:
           start = now;
           frameCount = 0;
         }
-
-        dispDepth(depth, depthDisp, 12000.0f);
+	
+	//floatvalue is lentgh in millimeters for the lidar
+        dispDepth(depth, depthDisp, 8000.0f);
         combine(color, depthDisp, combined);
-        //combined = color;
-
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
         cv::imshow("Image Viewer", combined);
       }
@@ -444,7 +445,6 @@ int main(int argc, char **argv)
     {
       useExact = false;
     }
-
     else if(param == "compressed")
     {
       useCompressed = true;

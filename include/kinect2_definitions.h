@@ -53,5 +53,4 @@
 #define K2_CALIB_ESSENTIAL     "essential"
 #define K2_CALIB_FUNDAMENTAL   "fundamental"
 #define K2_CALIB_DEPTH_SHIFT   "depthShift"
-
 #endif //__KINECT2_DEFINITIONS_H__
