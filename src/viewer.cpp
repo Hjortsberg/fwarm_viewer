@@ -272,6 +272,17 @@ private:
     cv::waitKey(100);
   }
 
+//Resize(outputdwidth,outputheight,input_imagecolor,input_imagedepth,output_imagecolor,output_imagedepth)
+  void resize(int width, int height,const cv::Mat &inC, const cv::Mat &inD, cv::Mat &outC,cv::Mat &outD)
+  {
+	//void resize(InputArray src, OutputArray dst, Size dsize, double fx=0, double fy=0, int interpolation )
+	//fx,fy = scaling parameters see opencv doc resize
+	// For shrinking use interpolation INTER_AREA
+	// For enlarging use interpolation INTER_CUBIC
+	cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+	cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+  }
+
   void readImage(const sensor_msgs::Image::ConstPtr msgImage, cv::Mat &image) const
   {
     cv_bridge::CvImageConstPtr pCvImage;
