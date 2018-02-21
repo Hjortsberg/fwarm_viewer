@@ -19,3 +19,6 @@ Date      | Man-Hours | Category |  Participants
 18-02-07  | 15        | Planning presentation |  ALL
 18-02-08  | 7         | Planning presentation |  ALL
 18-02-15  | 10        | Sprintplanning and development | E, G, P, D
+18-02-20  | 1         | Passing parameters as topic paths | J
+18-02-21  | 2,5       | Passing parameters as topic paths | J
+
