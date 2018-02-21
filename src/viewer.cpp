@@ -218,7 +218,9 @@ private:
     const int lineText = 1;
     const int font = cv::FONT_HERSHEY_SIMPLEX;
 
-    cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+    cv::namedWindow("Merged feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+    cv::namedWindow("Lidar feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+    cv::namedWindow("Image feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
     oss << "starting...";
 
     start = std::chrono::high_resolution_clock::now();
@@ -245,12 +247,14 @@ private:
         }
 
         dispDepth(depth, depthDisp, 12000.0f);
-		resize(640,480,color,color,depthDisp,depthDisp);
+		resize(640,480,color,depthDisp,color,depthDisp);
         combine(color, depthDisp, combined);
         //combined = color;
 
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
-        cv::imshow("Image Viewer", combined);
+        cv::imshow("Merged feed Viewer", combined);
+        cv::imshow("Image feed Viewer", color);
+        cv::imshow("Lidar feed Viewer", depthDisp);
       }
 
       int key = cv::waitKey(1);
