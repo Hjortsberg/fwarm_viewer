@@ -284,9 +284,16 @@ private:
 	//fx,fy = scaling parameters see opencv doc resize
 	// For shrinking use interpolation INTER_AREA
 	// For enlarging use interpolation INTER_CUBIC
-	cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
-	cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
-  }
+	if(width*height>inC.cols*inC.rows){
+		cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+	}else{
+		cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_AREA);
+	}
+	if(width*height>inD.cols*inD.rows){
+		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+	}else{
+		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+	}
 
   void readImage(const sensor_msgs::Image::ConstPtr msgImage, cv::Mat &image) const
   {
