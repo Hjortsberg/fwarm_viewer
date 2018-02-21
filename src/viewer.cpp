@@ -245,6 +245,7 @@ private:
         }
 
         dispDepth(depth, depthDisp, 12000.0f);
+		resize(640,480,color,color,depthDisp,depthDisp);
         combine(color, depthDisp, combined);
         //combined = color;
 
