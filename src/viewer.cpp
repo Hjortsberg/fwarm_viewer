@@ -294,6 +294,7 @@ private:
 	}else{
 		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
 	}
+}
 
   void readImage(const sensor_msgs::Image::ConstPtr msgImage, cv::Mat &image) const
   {
