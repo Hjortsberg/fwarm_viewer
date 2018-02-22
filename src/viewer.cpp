@@ -27,8 +27,10 @@
 #include <chrono>
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/core/core.hpp>
+#include "opencv2/highgui.hpp"
+#include "opencv2/imgproc.hpp"
+#include "opencv2/video/background_segm.hpp"
+#include "opencv2/video/tracking.hpp"
 
 #include <ros/ros.h>
 #include <ros/spinner.h>
@@ -45,15 +47,17 @@
 #include <message_filters/sync_policies/exact_time.h>
 #include <message_filters/sync_policies/approximate_time.h>
 
-#include <kinect2_definitions.h>
+#include <kinect2_bridge/kinect2_definitions.h>
 
 class Receiver
 {
 public:
-	enum Mode
-	{
-	  IMAGE = 0
-	};
+  enum Mode
+  {
+    IMAGE = 0,
+    CLOUD,
+    BOTH
+  };
 
 private:
   std::mutex lock;
@@ -86,6 +90,8 @@ private:
   std::thread imageViewerThread;
   Mode mode;
 
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloud;
+  pcl::PCDWriter writer;
   std::ostringstream oss;
   std::vector<int> params;
 
@@ -93,7 +99,7 @@ public:
   Receiver(const std::string &topicColor, const std::string &topicDepth, const bool useExact, const bool useCompressed)
     : topicColor(topicColor), topicDepth(topicDepth), useExact(useExact), useCompressed(useCompressed),
       updateImage(false), updateCloud(false), save(false), running(false), frame(0), queueSize(5),
-      nh("~"), spinner(0), it(nh), mode(IMAGE)
+      nh("~"), spinner(0), it(nh), mode(CLOUD)
   {
     cameraMatrixColor = cv::Mat::zeros(3, 3, CV_64F);
     cameraMatrixDepth = cv::Mat::zeros(3, 3, CV_64F);
@@ -153,9 +159,27 @@ private:
       }
       std::this_thread::sleep_for(duration);
     }
+    cloud = pcl::PointCloud<pcl::PointXYZRGBA>::Ptr(new pcl::PointCloud<pcl::PointXYZRGBA>());
+    cloud->height = color.rows;
+    cloud->width = color.cols;
+    cloud->is_dense = false;
+    //cloud->points.resize( 1080 * 1920); This is just testing code MVH Fwarm
+    cloud->points.resize(cloud->height * cloud->width);
     createLookup(this->color.cols, this->color.rows);
 
+    switch(mode)
+    {
+    case CLOUD:
+      cloudViewer();
+      break;
+    case IMAGE:
       imageViewer();
+      break;
+    case BOTH:
+      imageViewerThread = std::thread(&Receiver::imageViewer, this);
+      cloudViewer();
+      break;
+    }
   }
 
   void stop()
@@ -177,6 +201,10 @@ private:
     delete subCameraInfoDepth;
 
     running = false;
+    if(mode == BOTH)
+    {
+      imageViewerThread.join();
+    }
   }
 
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
@@ -213,10 +241,11 @@ private:
     size_t frameCount = 0;
     std::ostringstream oss;
     const cv::Point pos(5, 15);
-    const cv::Scalar colorText = CV_RGB(255, 255, 255);
+    const cv::Scalar colorText = CV_RGB(255, 0, 0);
     const double sizeText = 0.5;
     const int lineText = 1;
     const int font = cv::FONT_HERSHEY_SIMPLEX;
+
 
 
   //Debugging windows
@@ -227,6 +256,7 @@ private:
 	//cv::WindowFlags::WINDOWS_KEEPRATIO
     cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
     cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+
 
     oss << "starting...";
 
@@ -266,6 +296,10 @@ private:
         //cv::imshow("Image feed Viewer", color);
         //cv::imshow("Lidar feed Viewer", depthDisp);
         cv::imshow("Image Viewer", combined);
+
+	// How to add windows and show "input frames/matrices"
+		cv::imshow("Image Stream Viewer", color);
+		cv::imshow("Lidar Stream Viewer", depthDisp);
       }
 
       int key = cv::waitKey(1);
@@ -279,7 +313,12 @@ private:
       case 's':
         if(mode == IMAGE)
         {
-          saveImages(color, depth, depthDisp);
+          createCloud(depth, color, cloud);
+          saveCloudAndImages(cloud, color, depth, depthDisp);
+        }
+        else
+        {
+          save = true;
         }
         break;
       }
@@ -287,6 +326,7 @@ private:
     cv::destroyAllWindows();
     cv::waitKey(100);
   }
+
 
 //Resize(outputdwidth,outputheight,input_imagecolor,input_imagedepth,output_imagecolor,output_imagedepth)
   void resize(int width, int height,const cv::Mat &inC, const cv::Mat &inD, cv::Mat &outC,cv::Mat &outD)
@@ -307,6 +347,7 @@ private:
 	}
 }
 
+
   void readImage(const sensor_msgs::Image::ConstPtr msgImage, cv::Mat &image) const
   {
     cv_bridge::CvImageConstPtr pCvImage;
@@ -325,7 +366,16 @@ private:
 
   void dispDepth(const cv::Mat &in, cv::Mat &out, const float maxValue)
   {
+	
+	
+	// Line that sets the resolution of the lidar stream(480x640), does not scale lidar data propertly
+	//cv::Mat tmp = cv::Mat(480, 640, CV_8U);
+	//cv::resize(in, in, cv::Size(in.cols * 1.75,in.rows * 1.75), 0, 0, CV_INTER_LINEAR);	
+	//cv::resize(in, tmp, cv::Size(640, 480)); 
     cv::Mat tmp = cv::Mat(in.rows, in.cols, CV_8U);
+    
+	cout<<"rows :"<<tmp.rows;
+	cout<<"rows :"<<tmp.cols;
     const uint32_t maxInt = 255;
 
     #pragma omp parallel for
@@ -342,8 +392,7 @@ private:
 
     cv::applyColorMap(tmp, out, cv::COLORMAP_JET);
   }
-  
-  /* Function takes in color, depthDisp,combined, (color according to comment above) */
+
   void combine(const cv::Mat &inC, const cv::Mat &inD, cv::Mat &out)
   {
     out = cv::Mat(inC.rows, inC.cols, CV_8UC3);
@@ -358,6 +407,7 @@ private:
 
       for(int c = 0; c < inC.cols; ++c, ++itC, ++itD, ++itO)
       {
+		// These lines decide the coloring/"darkness" of the pixels
         itO->val[0] = (itC->val[0] + itD->val[0]) >> 1;
         itO->val[1] = (itC->val[1] + itD->val[1]) >> 1;
         itO->val[2] = (itC->val[2] + itD->val[2]) >> 1;
@@ -365,16 +415,55 @@ private:
     }
   }
 
+  void createCloud(const cv::Mat &depth, const cv::Mat &color, pcl::PointCloud<pcl::PointXYZRGBA>::Ptr &cloud) const
+  {
+    const float badPoint = std::numeric_limits<float>::quiet_NaN();
 
-  void saveImages(const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
+    #pragma omp parallel for
+    for(int r = 0; r < depth.rows; ++r)
+    {
+      pcl::PointXYZRGBA *itP = &cloud->points[r * depth.cols];
+      const uint16_t *itD = depth.ptr<uint16_t>(r);
+      const cv::Vec3b *itC = color.ptr<cv::Vec3b>(r);
+      const float y = lookupY.at<float>(0, r);
+      const float *itX = lookupX.ptr<float>();
+
+      for(size_t c = 0; c < (size_t)depth.cols; ++c, ++itP, ++itD, ++itC, ++itX)
+      {
+        register const float depthValue = *itD / 1000.0f;
+        // Check for invalid measurements
+        if(*itD == 0)
+        {
+          // not valid
+          itP->x = itP->y = itP->z = badPoint;
+          itP->rgba = 0;
+          continue;
+        }
+
+		//does something with the depth image, forcing values ends up in a black cloud viewer
+        itP->z = depthValue;
+        itP->x = *itX * depthValue;
+        itP->y = y * depthValue;
+        itP->b = itC->val[0];
+        itP->g = itC->val[1];
+        itP->r = itC->val[2];
+        itP->a = 255;
+      }
+    }
+  }
+
+  void saveCloudAndImages(const pcl::PointCloud<pcl::PointXYZRGBA>::ConstPtr cloud, const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
   {
     oss.str("");
     oss << "./" << std::setfill('0') << std::setw(4) << frame;
     const std::string baseName = oss.str();
+    const std::string cloudName = baseName + "_cloud.pcd";
     const std::string colorName = baseName + "_color.jpg";
     const std::string depthName = baseName + "_depth.png";
     const std::string depthColoredName = baseName + "_depth_colored.png";
 
+    OUT_INFO("saving cloud:" << cloudName);
+    writer.writeBinary(cloudName, *cloud);
     OUT_INFO("saving color: " << colorName);
     cv::imwrite(colorName, color, params);
     OUT_INFO("saving depth: " << depthName);
@@ -431,7 +520,7 @@ int main(int argc, char **argv)
   }
 #endif
 
-  ros::init(argc, argv, "fawrm_viewer", ros::init_options::AnonymousName);
+  ros::init(argc, argv, "kinect2_viewer", ros::init_options::AnonymousName);
 
   if(!ros::ok())
   {
@@ -441,10 +530,12 @@ int main(int argc, char **argv)
   std::string ns = K2_DEFAULT_NS;
   std::string topicColor = K2_TOPIC_QHD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
   std::string topicDepth = K2_TOPIC_QHD K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
+  //std::string topicColor = "usb_cam/image_raw";
+  //std::string topicDepth = "/sd/image_depth_rect";
   bool useExact = true;
   bool useCompressed = false;
-  Receiver::Mode mode = Receiver::IMAGE;
-
+  Receiver::Mode mode = Receiver::CLOUD;
+	  bool firstDefined = false;
   for(size_t i = 1; i < (size_t)argc; ++i)
   {
     std::string param(argv[i]);
@@ -455,6 +546,21 @@ int main(int argc, char **argv)
       ros::shutdown();
       return 0;
     }
+
+	else if(param.at(0)=='/') //end me
+	{
+		mode = Receiver::BOTH;      
+	  //mode = Receiver::IMAGE;
+	  ns = "";
+	  if(firstDefined==false){
+		topicColor = param;
+		firstDefined=true;
+      }else{
+		//mode = Receiver::BOTH;      
+	    topicDepth = param;
+	  }
+	}
+
     else if(param == "qhd")
     {
       topicColor = K2_TOPIC_QHD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
@@ -483,14 +589,77 @@ int main(int argc, char **argv)
     {
       useCompressed = true;
     }
-    else
+    else if(param == "image")
     {
-      ns = param;
+      mode = Receiver::IMAGE;
     }
+    else if(param == "cloud")
+    {
+      mode = Receiver::CLOUD;
+    }
+    else if(param == "both")
+    {
+      mode = Receiver::BOTH;
+    }
+/*    else if(param == "usbcamkinectlidar")
+    {
+      mode = Receiver::BOTH;
+      ns = "";
+      topicColor = "usb_cam/image_raw";
+      topicDepth = "kinect2/hd/image_depth_rect";
+	
+    }*/
+	else if(param == "usbcamkinectlidar")
+    {
+      mode = Receiver::IMAGE;
+	  useExact = false;
+      ns = "";
+      topicColor = "usb_cam/image_raw";
+      topicDepth = "kinect2/sd/image_depth_rect";
+	
+    }
+    else if(param == "usbcamcam")
+    {
+      mode = Receiver::BOTH;
+      ns = "";
+      topicColor = "usb_cam/image_raw";
+      topicDepth = "usb_cam/image_raw";
+	
+    }
+    else if(param == "kinectcamcam")
+    {
+      mode = Receiver::BOTH;
+	  topicColor = K2_TOPIC_QHD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
+      topicDepth = K2_TOPIC_QHD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
+    }
+    else if(param == "kinectcamusbcam")
+    {
+      mode = Receiver::BOTH;
+      ns = "";
+	  topicColor = "kinect2/sd/image_color_rect";
+      topicDepth = "usb_cam/image_raw";
+    }
+    else if(param == "kinectlidarusbcam")
+    {
+      mode = Receiver::BOTH;
+      ns = "";
+	  topicColor = "kinect2/sd/image_depth_rect";
+      topicDepth = "usb_cam/image_raw";
+    }
+    //else
+    //{
+    //  ns = param;
+    //}
   }
-
+if(firstDefined==true){
+  topicColor = topicColor;
+  topicDepth = topicDepth;
+}else{
   topicColor = "/" + ns + topicColor;
+  //topicColor = "/usb_cam/image_raw";
   topicDepth = "/" + ns + topicDepth;
+  //topicDepth = "/kinect2/qhd";
+}
   OUT_INFO("topic color: " FG_CYAN << topicColor << NO_COLOR);
   OUT_INFO("topic depth: " FG_CYAN << topicDepth << NO_COLOR);
 
