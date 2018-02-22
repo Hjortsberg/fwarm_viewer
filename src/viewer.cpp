@@ -218,9 +218,16 @@ private:
     const int lineText = 1;
     const int font = cv::FONT_HERSHEY_SIMPLEX;
 
+
+  //Debugging windows
+    //cv::namedWindow("Merged feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+    //cv::namedWindow("Lidar feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+    //cv::namedWindow("Image feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+
 	//cv::WindowFlags::WINDOWS_KEEPRATIO
     cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
     cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+
     oss << "starting...";
 
     start = std::chrono::high_resolution_clock::now();
@@ -245,11 +252,19 @@ private:
           start = now;
           frameCount = 0;
         }
+
+
+        dispDepth(depth, depthDisp, 12000.0f);
+		    resize(640,480,color,depthDisp,color,depthDisp);
+
 	
 	//floatvalue is lentgh in millimeters for the lidar
-        dispDepth(depth, depthDisp, 8000.0f);
+        //dispDepth(depth, depthDisp, 8000.0f);
         combine(color, depthDisp, combined);
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
+        //cv::imshow("Merged feed Viewer", combined);
+        //cv::imshow("Image feed Viewer", color);
+        //cv::imshow("Lidar feed Viewer", depthDisp);
         cv::imshow("Image Viewer", combined);
       }
 
@@ -272,6 +287,25 @@ private:
     cv::destroyAllWindows();
     cv::waitKey(100);
   }
+
+//Resize(outputdwidth,outputheight,input_imagecolor,input_imagedepth,output_imagecolor,output_imagedepth)
+  void resize(int width, int height,const cv::Mat &inC, const cv::Mat &inD, cv::Mat &outC,cv::Mat &outD)
+  {
+	//void resize(InputArray src, OutputArray dst, Size dsize, double fx=0, double fy=0, int interpolation )
+	//fx,fy = scaling parameters see opencv doc resize
+	// For shrinking use interpolation INTER_AREA
+	// For enlarging use interpolation INTER_CUBIC
+	if(width*height>inC.cols*inC.rows){
+		cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+	}else{
+		cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_AREA);
+	}
+	if(width*height>inD.cols*inD.rows){
+		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+	}else{
+		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+	}
+}
 
   void readImage(const sensor_msgs::Image::ConstPtr msgImage, cv::Mat &image) const
   {
