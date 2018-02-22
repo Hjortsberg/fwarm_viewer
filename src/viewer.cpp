@@ -444,7 +444,8 @@ int main(int argc, char **argv)
   bool useExact = true;
   bool useCompressed = false;
   Receiver::Mode mode = Receiver::IMAGE;
-
+  bool firstDefined = false;
+  
   for(size_t i = 1; i < (size_t)argc; ++i)
   {
     std::string param(argv[i]);
@@ -455,6 +456,20 @@ int main(int argc, char **argv)
       ros::shutdown();
       return 0;
     }
+	else if(param.at(0)=='/') //end me
+	{
+		mode = Receiver::BOTH;      
+	  //mode = Receiver::IMAGE;
+	  ns = "";
+	  if(firstDefined==false){
+		topicColor = param;
+		firstDefined=true;
+      }else{
+		//mode = Receiver::BOTH;      
+	    topicDepth = param;
+	  }
+	}
+
     else if(param == "qhd")
     {
       topicColor = K2_TOPIC_QHD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
@@ -488,9 +503,13 @@ int main(int argc, char **argv)
       ns = param;
     }
   }
-
+if(firstDefined==true){
+  topicColor = topicColor;
+  topicDepth = topicDepth;
+}else{
   topicColor = "/" + ns + topicColor;
   topicDepth = "/" + ns + topicDepth;
+}
   OUT_INFO("topic color: " FG_CYAN << topicColor << NO_COLOR);
   OUT_INFO("topic depth: " FG_CYAN << topicDepth << NO_COLOR);
 
