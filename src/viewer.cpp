@@ -468,16 +468,13 @@ int main(int argc, char **argv)
       ros::shutdown();
       return 0;
     }
-	else if(param.at(0)=='/') //end me
+	else if(param.at(0)=='/') 
 	{
-		mode = Receiver::BOTH;      
-	  //mode = Receiver::IMAGE;
 	  ns = "";
 	  if(firstDefined==false){
 		topicColor = param;
 		firstDefined=true;
       }else{
-		//mode = Receiver::BOTH;      
 	    topicDepth = param;
 	  }
 	}
