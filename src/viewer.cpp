@@ -64,6 +64,7 @@ private:
   bool updateImage, updateCloud;
   bool save;
   bool running;
+  int velocity=0;
   size_t frame;
   const size_t queueSize;
 
@@ -75,6 +76,13 @@ private:
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo> ApproximateSyncPolicy;
 
   ros::NodeHandle nh;
+  //Spoof node handle, simulates sensor data
+  ros::NodeHandle snh;
+
+  //Subscribe(node,buffersize,callback function)
+  // Topic messages are passed to the callback function
+  ros::Subscriber sub = n.subscribe("Spoofer", 10, chatterCallback);
+
   ros::AsyncSpinner spinner;
   image_transport::ImageTransport it;
   image_transport::SubscriberFilter *subImageColor, *subImageDepth;
@@ -306,6 +314,10 @@ private:
 		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
 	}
 }
+
+//  void resize(){
+
+//}
 
   void readImage(const sensor_msgs::Image::ConstPtr msgImage, cv::Mat &image) const
   {
