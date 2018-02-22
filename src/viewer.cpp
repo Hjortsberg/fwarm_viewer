@@ -218,9 +218,16 @@ private:
     const int lineText = 1;
     const int font = cv::FONT_HERSHEY_SIMPLEX;
 
-    cv::namedWindow("Merged feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
-    cv::namedWindow("Lidar feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
-    cv::namedWindow("Image feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+
+  //Debugging windows
+    //cv::namedWindow("Merged feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+    //cv::namedWindow("Lidar feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+    //cv::namedWindow("Image feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+
+	//cv::WindowFlags::WINDOWS_KEEPRATIO
+    cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
+    cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+
     oss << "starting...";
 
     start = std::chrono::high_resolution_clock::now();
@@ -246,15 +253,19 @@ private:
           frameCount = 0;
         }
 
-        dispDepth(depth, depthDisp, 12000.0f);
-		resize(640,480,color,depthDisp,color,depthDisp);
-        combine(color, depthDisp, combined);
-        //combined = color;
 
+        dispDepth(depth, depthDisp, 12000.0f);
+		    resize(640,480,color,depthDisp,color,depthDisp);
+
+	
+	//floatvalue is lentgh in millimeters for the lidar
+        //dispDepth(depth, depthDisp, 8000.0f);
+        combine(color, depthDisp, combined);
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
-        cv::imshow("Merged feed Viewer", combined);
-        cv::imshow("Image feed Viewer", color);
-        cv::imshow("Lidar feed Viewer", depthDisp);
+        //cv::imshow("Merged feed Viewer", combined);
+        //cv::imshow("Image feed Viewer", color);
+        //cv::imshow("Lidar feed Viewer", depthDisp);
+        cv::imshow("Image Viewer", combined);
       }
 
       int key = cv::waitKey(1);
@@ -468,7 +479,6 @@ int main(int argc, char **argv)
     {
       useExact = false;
     }
-
     else if(param == "compressed")
     {
       useCompressed = true;

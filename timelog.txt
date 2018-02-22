@@ -12,3 +12,13 @@ Date      | Man-Hours | Category |  Participants
 18-01-29  | 7         | S1T2,S1T3|  E,G,J,P
 18-01-30  | 4         | Trying to fix regression issues(kinect2_bridge launch file no longer works)|  E
 18-01-30  | 10,5      | Trying to fix regression issues, S1T2|  E,G,P
+18-02-01  | 15        | S1T2, Resizing and trying to fix color inversion |  E, G, J, P
+18-02-02  | 12        | Planning presentation |  E, G, J, P
+18-02-05  | 7.5       | Planning presentation |  E, D, J, P
+18-02-06  | 3         | Planning presentation |  E
+18-02-07  | 15        | Planning presentation |  ALL
+18-02-08  | 7         | Planning presentation |  ALL
+18-02-15  | 10        | Sprintplanning and development | E, G, P, D
+18-02-20  | 1         | Passing parameters as topic paths | J
+18-02-21  | 2,5       | Passing parameters as topic paths | J
+
