@@ -26,17 +26,11 @@
 #include <thread>
 #include <chrono>
 
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/visualization/cloud_viewer.h>
-
 #include <opencv2/opencv.hpp>
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
 #include "opencv2/video/background_segm.hpp"
 #include "opencv2/video/tracking.hpp"
-
 
 #include <ros/ros.h>
 #include <ros/spinner.h>
@@ -252,8 +246,18 @@ private:
     const int lineText = 1;
     const int font = cv::FONT_HERSHEY_SIMPLEX;
 
-    //cv::namedWindow("Image stream Viewer");
-	//cv::namedWindow("Lidar stream Viewer");
+
+
+  //Debugging windows
+    //cv::namedWindow("Merged feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+    //cv::namedWindow("Lidar feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+    //cv::namedWindow("Image feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+
+	//cv::WindowFlags::WINDOWS_KEEPRATIO
+    cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
+    cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+
+
     oss << "starting...";
 
     start = std::chrono::high_resolution_clock::now();
@@ -279,11 +283,18 @@ private:
           frameCount = 0;
         }
 
-        dispDepth(depth, depthDisp, 12000.0f);
-        combine(color, depthDisp, combined);
-        //combined = color;
 
+        dispDepth(depth, depthDisp, 12000.0f);
+		    resize(640,480,color,depthDisp,color,depthDisp);
+
+	
+	//floatvalue is lentgh in millimeters for the lidar
+        //dispDepth(depth, depthDisp, 8000.0f);
+        combine(color, depthDisp, combined);
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
+        //cv::imshow("Merged feed Viewer", combined);
+        //cv::imshow("Image feed Viewer", color);
+        //cv::imshow("Lidar feed Viewer", depthDisp);
         cv::imshow("Image Viewer", combined);
 
 	// How to add windows and show "input frames/matrices"
@@ -316,73 +327,26 @@ private:
     cv::waitKey(100);
   }
 
-  void cloudViewer()
+
+//Resize(outputdwidth,outputheight,input_imagecolor,input_imagedepth,output_imagecolor,output_imagedepth)
+  void resize(int width, int height,const cv::Mat &inC, const cv::Mat &inD, cv::Mat &outC,cv::Mat &outD)
   {
-    cv::Mat color, depth;
-    pcl::visualization::PCLVisualizer::Ptr visualizer(new pcl::visualization::PCLVisualizer("Cloud Viewer"));
-    const std::string cloudName = "rendered";
+	//void resize(InputArray src, OutputArray dst, Size dsize, double fx=0, double fy=0, int interpolation )
+	//fx,fy = scaling parameters see opencv doc resize
+	// For shrinking use interpolation INTER_AREA
+	// For enlarging use interpolation INTER_CUBIC
+	if(width*height>inC.cols*inC.rows){
+		cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+	}else{
+		cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_AREA);
+	}
+	if(width*height>inD.cols*inD.rows){
+		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+	}else{
+		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+	}
+}
 
-    lock.lock();
-    color = this->color;
-    depth = this->depth;
-    updateCloud = false;
-    lock.unlock();
-
-    createCloud(depth, color, cloud);
-
-    visualizer->addPointCloud(cloud, cloudName);
-    visualizer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, cloudName);
-    visualizer->initCameraParameters();
-    visualizer->setBackgroundColor(0, 0, 0);
-    visualizer->setPosition(mode == BOTH ? color.cols : 0, 0);
-    visualizer->setSize(color.cols, color.rows);
-    visualizer->setShowFPS(true);
-    visualizer->setCameraPosition(0, 0, 0, 0, -1, 0);
-    visualizer->registerKeyboardCallback(&Receiver::keyboardEvent, *this);
-
-    for(; running && ros::ok();)
-    {
-      if(updateCloud)
-      {
-        lock.lock();
-        color = this->color;
-        depth = this->depth;
-        updateCloud = false;
-        lock.unlock();
-
-        createCloud(depth, color, cloud);
-
-        visualizer->updatePointCloud(cloud, cloudName);
-      }
-      if(save)
-      {
-        save = false;
-        cv::Mat depthDisp;
-        dispDepth(depth, depthDisp, 12000.0f);
-        saveCloudAndImages(cloud, color, depth, depthDisp);
-      }
-      visualizer->spinOnce(10);
-    }
-    visualizer->close();
-  }
-
-  void keyboardEvent(const pcl::visualization::KeyboardEvent &event, void *)
-  {
-    if(event.keyUp())
-    {
-      switch(event.getKeyCode())
-      {
-      case 27:
-      case 'q':
-        running = false;
-        break;
-      case ' ':
-      case 's':
-        save = true;
-        break;
-      }
-    }
-  }
 
   void readImage(const sensor_msgs::Image::ConstPtr msgImage, cv::Mat &image) const
   {
@@ -621,7 +585,6 @@ int main(int argc, char **argv)
     {
       useExact = false;
     }
-
     else if(param == "compressed")
     {
       useCompressed = true;

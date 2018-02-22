@@ -3,7 +3,17 @@ Repository for the course D0020E, project in computer science.
 
 ## Table of contents
 - [Install](#install)
-
+  * [Install with script](#installation-script)
+## Installation with script
+* Download the script through your terminal with wget in your home directory
+```
+wget https://raw.githubusercontent.com/Hjortsberg/fwarm_viewer/master/install_fwarm_ros.sh
+```
+* Make the script executable, do __NOT__ run as sudo. Then execute with the ./ command.
+```
+chmod +x install_fwarm_ros.sh
+./install_fwarm_ros.sh
+```
 ## Install
 Steps to get a lab environment up and running.
 
