@@ -47,6 +47,8 @@
 
 #include <kinect2_definitions.h>
 
+#include "std_msgs/Int32.h"
+
 class Receiver
 {
 public:
@@ -64,7 +66,7 @@ private:
   bool updateImage, updateCloud;
   bool save;
   bool running;
-  int velocity=0;
+  int safeDistance;
   size_t frame;
   const size_t queueSize;
 
@@ -81,7 +83,7 @@ private:
 
   //Subscribe(node,buffersize,callback function)
   // Topic messages are passed to the callback function
-  ros::Subscriber sub = n.subscribe("Spoofer", 10, chatterCallback);
+  
 
   ros::AsyncSpinner spinner;
   image_transport::ImageTransport it;
@@ -139,6 +141,8 @@ private:
     subCameraInfoColor = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoColor, queueSize);
     subCameraInfoDepth = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoDepth, queueSize);
 
+	//ros::Subscriber sub = snh.subscribe("Spoofer", 10, &Receiver::VelocityCallback, this);
+
     if(useExact)
     {
       syncExact = new message_filters::Synchronizer<ExactSyncPolicy>(ExactSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth);
@@ -187,6 +191,12 @@ private:
     running = false;
   }
 
+	//sets safedistance to certain value based on velocity
+  void VelocityCallback(const std_msgs::Int32 &vel){
+	//Max velocity is assumed to be 50 km/h
+	this->safeDistance = (vel.data*12000.0f)/50;
+}
+
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
                 const sensor_msgs::CameraInfo::ConstPtr cameraInfoColor, const sensor_msgs::CameraInfo::ConstPtr cameraInfoDepth)
   {
@@ -234,7 +244,7 @@ private:
 
 	//cv::WindowFlags::WINDOWS_KEEPRATIO
     cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
-    cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
+    //cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 
     oss << "starting...";
 
@@ -262,8 +272,9 @@ private:
         }
 
 
-        dispDepth(depth, depthDisp, 12000.0f);
-		    resize(640,480,color,depthDisp,color,depthDisp);
+        //dispDepth(depth, depthDisp, this->safeDistance);
+		dispDepth(depth, depthDisp, 12000.0f);
+		resize(640,480,color,depthDisp,color,depthDisp);
 
 	
 	//floatvalue is lentgh in millimeters for the lidar
@@ -271,8 +282,8 @@ private:
         combine(color, depthDisp, combined);
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
         //cv::imshow("Merged feed Viewer", combined);
-        //cv::imshow("Image feed Viewer", color);
-        //cv::imshow("Lidar feed Viewer", depthDisp);
+        cv::imshow("Image feed Viewer", color);
+        cv::imshow("Lidar feed Viewer", depthDisp);
         cv::imshow("Image Viewer", combined);
       }
 
@@ -311,13 +322,9 @@ private:
 	if(width*height>inD.cols*inD.rows){
 		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
 	}else{
-		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
+		cv::resize(inD,outD,cv::Size(width,height),0.0,0.0,cv::INTER_AREA);
 	}
 }
-
-//  void resize(){
-
-//}
 
   void readImage(const sensor_msgs::Image::ConstPtr msgImage, cv::Mat &image) const
   {
