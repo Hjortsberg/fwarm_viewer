@@ -331,7 +331,16 @@ private:
     }
   }
 
-
+  void humanDetector(const cv::Mat &depthColored, const cv::Mat &color){
+	// initialize Hostogram Of Oriented Graphs detector
+	// SVM = support vector machine
+	cv::HOGDescriptor hog;
+	hog.setSVMDetector(cv::HOGDescriptor::getDefaultPeopleDetector());
+	
+	vector<Rect> found, found_filtered;	
+	hog.detectMultiScale(depthColored, found, 0, Size(8,8), Size(32,32), 1.05, 2);
+	
+}
   void saveImages(const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
   {
     oss.str("");
