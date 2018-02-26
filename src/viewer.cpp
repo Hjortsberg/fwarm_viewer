@@ -207,7 +207,7 @@ private:
 
   void imageViewer()
   {
-    cv::Mat color, depth, depthDisp, combined;
+    cv::Mat color, depth, depthDisp, combined, depthDispHuman, depthDispResize, colorResize;
     std::chrono::time_point<std::chrono::high_resolution_clock> start, now;
     double fps = 0;
     size_t frameCount = 0;
@@ -248,7 +248,15 @@ private:
 	
 	//floatvalue is lentgh in millimeters for the lidar
         dispDepth(depth, depthDisp, 8000.0f);
-        combine(color, depthDisp, combined);
+	//cv::resize(depthDisp, depthDispResize, cv::Size(320,240),0.0,0.0, cv::INTER_CUBIC);
+	//OUT_INFO(depthDispResize.cols);
+        humanDetector(color);
+	OUT_INFO(depthDisp.rows);
+	//OUT_INFO(depthDispHuman.cols);
+        OUT_INFO("Passed human detector");    
+	//cv::resize(color, colorResize, cv::Size(320,240),0.0,0.0, cv::INTER_CUBIC);
+	combine(color, depthDisp, combined);
+        OUT_INFO("Passed combine");    
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
         cv::imshow("Image Viewer", combined);
       }
@@ -331,24 +339,27 @@ private:
     }
   }
 
-  void humanDetector(const cv::Mat &depthColored, const cv::Mat &color){
+  void humanDetector(const cv::Mat &videoIn){
 	// initialize Hostogram Of Oriented Graphs detector
 	// SVM = support vector machine
 	cv::HOGDescriptor hog;
 	hog.setSVMDetector(cv::HOGDescriptor::getDefaultPeopleDetector());
 	
 	std::vector<cv::Rect> found, found_filtered;	
-	hog.detectMultiScale(depthColored, found, 0, cv::Size(8,8), cv::Size(32,32), 1.05, 2);
+	hog.detectMultiScale(videoIn, found, 0, cv::Size(8,8), cv::Size(32,32), 1.05, 2);
 	
 	size_t i, j;
         for (i=0; i<found.size(); i++)
         {
             cv::Rect r = found[i];
+                OUT_INFO("NESTED LOOP");    
             for (j=0; j<found.size(); j++)
+                OUT_INFO("NESTED LOOPinner");    
                 if (j!=i && (r & found[j])==r)
-                    break;
+		break;
             if (j==found.size())
                 found_filtered.push_back(r);
+                OUT_INFO("BUSHPACK");    
         }
         for (i=0; i<found_filtered.size(); i++)
         {
@@ -357,7 +368,9 @@ private:
 	    r.width = cvRound(r.width*0.8);
 	    r.y += cvRound(r.height*0.06);
 	    r.height = cvRound(r.height*0.9);
-	    rectangle(color, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
+            OUT_INFO("BEFORE");    
+	    rectangle(videoIn, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
+            OUT_INFO("after");    
 	}	
 }
   void saveImages(const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
