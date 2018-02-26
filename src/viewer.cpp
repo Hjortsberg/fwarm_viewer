@@ -349,7 +349,7 @@ private:
 	hog.detectMultiScale(videoIn, found, 0, cv::Size(8,8), cv::Size(32,32), 1.05, 2);
 	
 	size_t i, j;
-        for (i=0; i<found.size(); i++)
+	for(i=0; i<found.size(); i++)
         {
             cv::Rect r = found[i];
                 OUT_INFO("NESTED LOOP");    
@@ -361,7 +361,8 @@ private:
                 found_filtered.push_back(r);
                 OUT_INFO("BUSHPACK");    
         }
-        for (i=0; i<found_filtered.size(); i++)
+	#pragma omp parallel for
+        for(i=0; i<found_filtered.size(); i++)
         {
 	    cv::Rect r = found_filtered[i];
             r.x += cvRound(r.width*0.1);
