@@ -89,6 +89,7 @@ private:
   image_transport::ImageTransport it;
   image_transport::SubscriberFilter *subImageColor, *subImageDepth;
   message_filters::Subscriber<sensor_msgs::CameraInfo> *subCameraInfoColor, *subCameraInfoDepth;
+  message_filters::Subscriber<std_msgs::Int32> *subVelocity;
 
   message_filters::Synchronizer<ExactSyncPolicy> *syncExact;
   message_filters::Synchronizer<ApproximateSyncPolicy> *syncApproximate;
@@ -140,6 +141,10 @@ private:
     subImageDepth = new image_transport::SubscriberFilter(it, topicDepth, queueSize, hints);
     subCameraInfoColor = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoColor, queueSize);
     subCameraInfoDepth = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoDepth, queueSize);
+    
+
+
+	subVelocity = new message_filters::Subscriber<std_msgs::Int32>(snh, "Spoofer", 10);
 
 	//ros::Subscriber sub = snh.subscribe("Spoofer", 10, &Receiver::VelocityCallback, this);
 
@@ -195,7 +200,7 @@ private:
   void VelocityCallback(const std_msgs::Int32 &vel){
 	//Max velocity is assumed to be 50 km/h
 	this->safeDistance = (vel.data*12000.0f)/50;
-}
+	}
 
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
                 const sensor_msgs::CameraInfo::ConstPtr cameraInfoColor, const sensor_msgs::CameraInfo::ConstPtr cameraInfoDepth)
@@ -266,14 +271,14 @@ private:
         {
           fps = frameCount / elapsed;
           oss.str("");
-          oss << "fps: " << fps << " ( " << elapsed / frameCount * 1000.0 << " ms)";
+          oss << "fps: " << fps << " ( " << elapsed / frameCount * 1000.0 << " ms)   " << this->safeDistance;
           start = now;
           frameCount = 0;
         }
 
 
-        //dispDepth(depth, depthDisp, this->safeDistance);
-		dispDepth(depth, depthDisp, 12000.0f);
+        dispDepth(depth, depthDisp, this->safeDistance);
+		//dispDepth(depth, depthDisp, 12000.0f);
 		resize(640,480,color,depthDisp,color,depthDisp);
 
 	
