@@ -207,7 +207,7 @@ private:
 
   void imageViewer()
   {
-    cv::Mat color, depth, depthDisp, combined, depthResize, eightBitDepth;
+    cv::Mat color, depth, depthDisp, combined, depthResize, eightBitDepth, detectMask;
     std::chrono::time_point<std::chrono::high_resolution_clock> start, now;
     double fps = 0;
     size_t frameCount = 0;
@@ -247,17 +247,18 @@ private:
           frameCount = 0;
         }
 
-        dispDepth(depth, depthDisp, eightBitDepth, 2500.0f);
+        dispDepth(depth, depthDisp, eightBitDepth, 6000.0f);
+		humanDetector(color, detectMask);
 		//cv::resize(depth,depthResize,cv::Size(640,480),0.0,0.0,cv::INTER_CUBIC);
 		//resize(640,480,color,depthDisp,color,depthDisp);
-        combine(color, depthDisp, eightBitDepth, combined);
+        combine(color, depthDisp, eightBitDepth, detectMask, combined);
         //combined = color;
 
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
         cv::imshow("Merged feed Viewer", combined);
         cv::imshow("Image feed Viewer", color);
         cv::imshow("Lidar feed Viewer", depthDisp);
-		cv::imshow("Mono feed Viewer", depth);
+		cv::imshow("Mono feed Viewer", detectMask);
       }
 
       int key = cv::waitKey(1);
@@ -336,36 +337,69 @@ private:
   }
   
   /* Function takes in color, depthDisp,combined, (color according to comment above) */
-  void combine(const cv::Mat &inC, const cv::Mat &inD, const cv::Mat &inM, cv::Mat &out)
+  void combine(const cv::Mat &inC, const cv::Mat &inD, const cv::Mat &inM, const cv::Mat &inH, cv::Mat &out)
   {
     out = cv::Mat(inC.rows, inC.cols, CV_8UC3);
 
     #pragma omp parallel for
-    for(int r = 0; r < inC.rows; ++r)
-    {
+    for(int r = 0; r < inC.rows; ++r){
       const cv::Vec3b
       *itC = inC.ptr<cv::Vec3b>(r),
       *itD = inD.ptr<cv::Vec3b>(r);
-	  const uint8_t *itM = inM.ptr<uint8_t>(r);
+	  	const uint8_t 
+			*itM = inM.ptr<uint8_t>(r),
+			*itH = inH.ptr<uint8_t>(r);
 	  
       cv::Vec3b *itO = out.ptr<cv::Vec3b>(r);
 
-      for(int c = 0; c < inC.cols; ++c, ++itC, ++itD, ++itO, ++itM)
-      {
-		if(*itM == 0.0f || *itM == 255.0f){
-			itO->val[0] = itC->val[0];
-			itO->val[1] = itC->val[1];
-			itO->val[2] = itC->val[2];
-		}
-		else{
-			itO->val[0] = (itC->val[0] + itD->val[0]) >> 1;
-		    itO->val[1] = (itC->val[1] + itD->val[1]) >> 1;
-		    itO->val[2] = (itC->val[2] + itD->val[2]) >> 1;
-		}
-      }
+      for(int c = 0; c < inC.cols; ++c, ++itC, ++itD, ++itO, ++itM, ++itH){
+				if(*itM > 0.0f && *itM < 255.0f && *itH == 255.0f){
+					itO->val[0] = (itC->val[0] + itD->val[0]) >> 1;
+				  itO->val[1] = (itC->val[1] + itD->val[1]) >> 1;
+				  itO->val[2] = (itC->val[2] + itD->val[2]) >> 1;
+				}
+				else{
+					itO->val[0] = itC->val[0];
+					itO->val[1] = itC->val[1];
+					itO->val[2] = itC->val[2];
+				}
+    	}
     }
   }
 
+ void humanDetector(const cv::Mat &videoIn, cv::Mat &maskOut){
+	// initialize Hostogram Of Oriented Graphs detector
+	// SVM = support vector machine
+	cv::HOGDescriptor hog;
+	hog.setSVMDetector(cv::HOGDescriptor::getDefaultPeopleDetector());
+	
+	std::vector<cv::Rect> found, found_filtered;	
+	hog.detectMultiScale(videoIn, found, 0, cv::Size(8,8), cv::Size(32,32), 1.05, 2);
+	
+	maskOut = cv::Mat(videoIn.rows, videoIn.cols, CV_8U, 0.0f);
+
+	size_t i, j;
+	for(i=0; i<found.size(); i++)
+        {
+            cv::Rect r = found[i];  
+            for (j=0; j<found.size(); j++)   
+                if (j!=i && (r & found[j])==r)
+		break;
+            if (j==found.size())
+                found_filtered.push_back(r);    
+        }
+	#pragma omp parallel for
+        for(i=0; i<found_filtered.size(); i++)
+        {
+	    cv::Rect r = found_filtered[i];
+            r.x += cvRound(r.width*0.1);
+	    r.width = cvRound(r.width*0.8);
+	    r.y += cvRound(r.height*0.06);
+	    r.height = cvRound(r.height*0.9);  
+	    //rectangle(videoIn, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
+			rectangle(maskOut, r.tl(), r.br(), 255.0f, CV_FILLED);
+	}	
+}
 
   void saveImages(const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
   {
