@@ -32,6 +32,7 @@
 
 #include <ros/ros.h>
 #include <ros/spinner.h>
+#include <ros/callback_queue.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 
@@ -48,6 +49,8 @@
 #include <kinect2_definitions.h>
 
 #include "std_msgs/Int32.h"
+#include "std_msgs/String.h"
+
 
 class Receiver
 {
@@ -66,7 +69,7 @@ private:
   bool updateImage, updateCloud;
   bool save;
   bool running;
-  int safeDistance;
+  int safeDistance = 5000.0f;
   size_t frame;
   const size_t queueSize;
 
@@ -78,21 +81,21 @@ private:
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo> ApproximateSyncPolicy;
 
   ros::NodeHandle nh;
+
   //Spoof node handle, simulates sensor data
   ros::NodeHandle snh;
-
-  //Subscribe(node,buffersize,callback function)
-  // Topic messages are passed to the callback function
-  
 
   ros::AsyncSpinner spinner;
   image_transport::ImageTransport it;
   image_transport::SubscriberFilter *subImageColor, *subImageDepth;
   message_filters::Subscriber<sensor_msgs::CameraInfo> *subCameraInfoColor, *subCameraInfoDepth;
-  message_filters::Subscriber<std_msgs::Int32> *subVelocity;
+  
 
   message_filters::Synchronizer<ExactSyncPolicy> *syncExact;
   message_filters::Synchronizer<ApproximateSyncPolicy> *syncApproximate;
+
+  //message_filters::Subscriber<std_msgs::Int32> *subVelocity;
+  message_filters::Subscriber<std_msgs::Header> *subVelocity;
 
   std::thread imageViewerThread;
   Mode mode;
@@ -141,12 +144,14 @@ private:
     subImageDepth = new image_transport::SubscriberFilter(it, topicDepth, queueSize, hints);
     subCameraInfoColor = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoColor, queueSize);
     subCameraInfoDepth = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoDepth, queueSize);
-    
+	
 
 
-	subVelocity = new message_filters::Subscriber<std_msgs::Int32>(snh, "Spoofer", 10);
 
-	//ros::Subscriber sub = snh.subscribe("Spoofer", 10, &Receiver::VelocityCallback, this);
+	subVelocity = new message_filters::Subscriber<std_msgs::Header> (snh, "spoof", 10);
+	//subVelocity = new message_filters::Subscriber<std_msgs::Int32> (snh, "spoof", 10);
+	//subVelocity->registerCallback(boost::bind(&Receiver::VelocityCallback, this, _1,_2,_3,_4));
+	
 
     if(useExact)
     {
@@ -158,6 +163,7 @@ private:
       syncApproximate = new message_filters::Synchronizer<ApproximateSyncPolicy>(ApproximateSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth);
       syncApproximate->registerCallback(boost::bind(&Receiver::callback, this, _1, _2, _3, _4));
     }
+
 
     spinner.start();
 
@@ -199,7 +205,8 @@ private:
 	//sets safedistance to certain value based on velocity
   void VelocityCallback(const std_msgs::Int32 &vel){
 	//Max velocity is assumed to be 50 km/h
-	this->safeDistance = (vel.data*12000.0f)/50;
+	this->safeDistance = 12000.0f;
+	//this->safeDistance = (vel.data*12000.0f)/50;
 	}
 
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
@@ -315,13 +322,14 @@ private:
 //Resize(outputdwidth,outputheight,input_imagecolor,input_imagedepth,output_imagecolor,output_imagedepth)
   void resize(int width, int height,const cv::Mat &inC, const cv::Mat &inD, cv::Mat &outC,cv::Mat &outD)
   {
-	//void resize(InputArray src, OutputArray dst, Size dsize, double fx=0, double fy=0, int interpolation )
-	//fx,fy = scaling parameters see opencv doc resize
-	// For shrinking use interpolation INTER_AREA
-	// For enlarging use interpolation INTER_CUBIC
+
 	if(width*height>inC.cols*inC.rows){
+		//resize(InputArray src, OutputArray dst, Size dsize, double fx=0, double fy=0, int interpolation )
+		//fx,fy = scaling parameters see opencv doc resize
+		// For enlarging use interpolation INTER_CUBIC
 		cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
 	}else{
+		// For shrinking use interpolation INTER_AREA
 		cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_AREA);
 	}
 	if(width*height>inD.cols*inD.rows){
