@@ -77,8 +77,8 @@ private:
   cv::Mat cameraMatrixColor, cameraMatrixDepth;
   cv::Mat lookupX, lookupY;
 
-  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo> ExactSyncPolicy;
-  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo> ApproximateSyncPolicy;
+  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo,sensor_msgs::CameraInfo> ExactSyncPolicy;
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo,sensor_msgs::CameraInfo> ApproximateSyncPolicy;
 
   ros::NodeHandle nh;
 
@@ -95,7 +95,8 @@ private:
   message_filters::Synchronizer<ApproximateSyncPolicy> *syncApproximate;
 
   //message_filters::Subscriber<std_msgs::Int32> *subVelocity;
-  message_filters::Subscriber<std_msgs::Header> *subVelocity;
+  //message_filters::Subscriber<std_msgs::Header> *subVelocity;
+	message_filters::Subscriber<sensor_msgs::CameraInfo> *subVelocity;
 
   std::thread imageViewerThread;
   Mode mode;
@@ -148,20 +149,21 @@ private:
 
 
 
-	subVelocity = new message_filters::Subscriber<std_msgs::Header> (snh, "spoof", 10);
+	  subVelocity = new message_filters::Subscriber<sensor_msgs::CameraInfo> (snh, "velocity", 10);
+	  //subVelocity = new message_filters::Subscriber<std_msgs::Header> (snh, "spoof", 10);
 	//subVelocity = new message_filters::Subscriber<std_msgs::Int32> (snh, "spoof", 10);
 	//subVelocity->registerCallback(boost::bind(&Receiver::VelocityCallback, this, _1,_2,_3,_4));
 	
 
     if(useExact)
     {
-      syncExact = new message_filters::Synchronizer<ExactSyncPolicy>(ExactSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth);
-      syncExact->registerCallback(boost::bind(&Receiver::callback, this, _1, _2, _3, _4));
+      syncExact = new message_filters::Synchronizer<ExactSyncPolicy>(ExactSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth, *subVelocity);
+      syncExact->registerCallback(boost::bind(&Receiver::callback, this, _1, _2, _3, _4,_5));
     }
     else
     {
-      syncApproximate = new message_filters::Synchronizer<ApproximateSyncPolicy>(ApproximateSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth);
-      syncApproximate->registerCallback(boost::bind(&Receiver::callback, this, _1, _2, _3, _4));
+      syncApproximate = new message_filters::Synchronizer<ApproximateSyncPolicy>(ApproximateSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth, *subVelocity);
+      syncApproximate->registerCallback(boost::bind(&Receiver::callback, this, _1, _2, _3, _4,_5));
     }
 
 
@@ -210,7 +212,7 @@ private:
 	}
 
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
-                const sensor_msgs::CameraInfo::ConstPtr cameraInfoColor, const sensor_msgs::CameraInfo::ConstPtr cameraInfoDepth)
+                const sensor_msgs::CameraInfo::ConstPtr cameraInfoColor, const sensor_msgs::CameraInfo::ConstPtr cameraInfoDepth,  const sensor_msgs::CameraInfo::ConstPtr vel)
   {
     cv::Mat color, depth;
 
@@ -218,6 +220,8 @@ private:
     readCameraInfo(cameraInfoDepth, cameraMatrixDepth);
     readImage(imageColor, color);
     readImage(imageDepth, depth);
+
+	this->safeDistance = (vel->width*12000.0f)/50;
 
     // IR image input
     if(color.type() == CV_16U)
