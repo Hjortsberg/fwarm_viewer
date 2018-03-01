@@ -89,6 +89,12 @@ private:
   std::ostringstream oss;
   std::vector<int> params;
 
+  //variables affecting multiple screens
+  int scr1_width = 1920;
+  int scr1_height= 1080;
+  int scr2_width = 1920;
+  int scr2_height= 1200;
+
 public:
   Receiver(const std::string &topicColor, const std::string &topicDepth, const bool useExact, const bool useCompressed)
     : topicColor(topicColor), topicDepth(topicDepth), useExact(useExact), useCompressed(useCompressed),
@@ -226,7 +232,10 @@ private:
 	//cv::WindowFlags::WINDOWS_KEEPRATIO
     cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
     cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
-
+    
+    cv::namedWindow("second Viewer", cv::WindowFlags::WINDOW_NORMAL);
+    cv::moveWindow("second Viewer", scr1_width, scr1_height);
+    cv::setWindowProperty("second Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
     oss << "starting...";
 
     start = std::chrono::high_resolution_clock::now();
@@ -264,8 +273,9 @@ private:
         //cv::imshow("Merged feed Viewer", combined);
         //cv::imshow("Image feed Viewer", color);
         //cv::imshow("Lidar feed Viewer", depthDisp);
-	cv::imshow("Mono feed Viewer", detectMask);
-        //cv::imshow("Image Viewer", combined);
+	//cv::imshow("Mono feed Viewer", detectMask);
+        cv::imshow("second Viewer", combined);
+	cv::imshow("Image Viewer", combined);
       }
 
       int key = cv::waitKey(1);
@@ -463,6 +473,7 @@ void help(const std::string &path)
             << FG_YELLOW "    'approx'" NO_COLOR " use approximate time synchronization" << std::endl;
 }
 
+
 int main(int argc, char **argv)
 {
 #if EXTENDED_OUTPUT
@@ -480,7 +491,7 @@ int main(int argc, char **argv)
   {
     return 0;
   }
-
+  
   std::string ns = K2_DEFAULT_NS;
   std::string topicColor = K2_TOPIC_QHD K2_TOPIC_IMAGE_COLOR K2_TOPIC_IMAGE_RECT;
   std::string topicDepth = K2_TOPIC_QHD K2_TOPIC_IMAGE_DEPTH K2_TOPIC_IMAGE_RECT;
