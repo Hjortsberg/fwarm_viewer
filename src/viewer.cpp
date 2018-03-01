@@ -207,7 +207,7 @@ private:
 
   void imageViewer()
   {
-    cv::Mat color, depth, depthDisp, combined, depthDispHuman, depthDispResize, colorResize;
+    cv::Mat color, depth, depthDisp, combined, depthResize, eightBitDepth, detectMask;
     std::chrono::time_point<std::chrono::high_resolution_clock> start, now;
     double fps = 0;
     size_t frameCount = 0;
@@ -218,12 +218,11 @@ private:
     const int lineText = 1;
     const int font = cv::FONT_HERSHEY_SIMPLEX;
 
-
   //Debugging windows
     //cv::namedWindow("Merged feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
     //cv::namedWindow("Lidar feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
     //cv::namedWindow("Image feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
-
+    //cv::namedWindow("Mono feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
 	//cv::WindowFlags::WINDOWS_KEEPRATIO
     cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
     cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
@@ -252,19 +251,21 @@ private:
           start = now;
           frameCount = 0;
         }
-	
-	//Used for debugging purposes and compatiblility with usb camera
-	//resize(640,480,color,depthDisp,color,depthDisp);
-	
+
 	//floatvalue is lentgh in millimeters for the lidar
-        dispDepth(depth, depthDisp, 8000.0f);
-        humanDetector(color);
-	combine(color, depthDisp, combined);
+        dispDepth(depth, depthDisp, eightBitDepth, 6000.0f);
+	humanDetector(color, detectMask);
+	//cv::resize(depth,depthResize,cv::Size(640,480),0.0,0.0,cv::INTER_CUBIC);
+	//resize(640,480,color,depthDisp,color,depthDisp);
+        combine(color, depthDisp, eightBitDepth, detectMask, combined);
+        //combined = color;
+
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
         //cv::imshow("Merged feed Viewer", combined);
         //cv::imshow("Image feed Viewer", color);
         //cv::imshow("Lidar feed Viewer", depthDisp);
-        cv::imshow("Image Viewer", combined);
+	cv::imshow("Mono feed Viewer", detectMask);
+        //cv::imshow("Image Viewer", combined);
       }
 
       int key = cv::waitKey(1);
@@ -322,7 +323,7 @@ private:
     }
   }
 
-  void dispDepth(const cv::Mat &in, cv::Mat &out, const float maxValue)
+  void dispDepth(const cv::Mat &in, cv::Mat &out, cv::Mat &monoOut, const float maxValue)
   {
     cv::Mat tmp = cv::Mat(in.rows, in.cols, CV_8U);
     const uint32_t maxInt = 255;
@@ -338,33 +339,42 @@ private:
         *itO = (uint8_t)std::min((*itI * maxInt / maxValue), 255.0f);
       }
     }
-
-    cv::applyColorMap(tmp, out, cv::COLORMAP_JET);
+	monoOut = tmp;
+    cv::applyColorMap(tmp, out, cv::COLORMAP_AUTUMN);
   }
   
   /* Function takes in color, depthDisp,combined, (color according to comment above) */
-  void combine(const cv::Mat &inC, const cv::Mat &inD, cv::Mat &out)
+  void combine(const cv::Mat &inC, const cv::Mat &inD, const cv::Mat &inM, const cv::Mat &inH, cv::Mat &out)
   {
     out = cv::Mat(inC.rows, inC.cols, CV_8UC3);
 
     #pragma omp parallel for
-    for(int r = 0; r < inC.rows; ++r)
-    {
+    for(int r = 0; r < inC.rows; ++r){
       const cv::Vec3b
       *itC = inC.ptr<cv::Vec3b>(r),
-       *itD = inD.ptr<cv::Vec3b>(r);
+      *itD = inD.ptr<cv::Vec3b>(r);
+	  	const uint8_t 
+			*itM = inM.ptr<uint8_t>(r),
+			*itH = inH.ptr<uint8_t>(r);
+	  
       cv::Vec3b *itO = out.ptr<cv::Vec3b>(r);
 
-      for(int c = 0; c < inC.cols; ++c, ++itC, ++itD, ++itO)
-      {
-        itO->val[0] = (itC->val[0] + itD->val[0]) >> 1;
-        itO->val[1] = (itC->val[1] + itD->val[1]) >> 1;
-        itO->val[2] = (itC->val[2] + itD->val[2]) >> 1;
-      }
+      for(int c = 0; c < inC.cols; ++c, ++itC, ++itD, ++itO, ++itM, ++itH){
+				if(*itM > 0.0f && *itM < 255.0f && *itH == 255.0f){
+					itO->val[0] = (itC->val[0] + itD->val[0]) >> 1;
+				  itO->val[1] = (itC->val[1] + itD->val[1]) >> 1;
+				  itO->val[2] = (itC->val[2] + itD->val[2]) >> 1;
+				}
+				else{
+					itO->val[0] = itC->val[0];
+					itO->val[1] = itC->val[1];
+					itO->val[2] = itC->val[2];
+				}
+    	}
     }
   }
 
-  void humanDetector(const cv::Mat &videoIn){
+  void humanDetector(const cv::Mat &videoIn, cv::Mat &maskOut){
 	// initialize Histogram Of Oriented Gradients detector
 	// SVM = support vector machine
 	// detectMultiscale does all the magic. This can be optimized.
@@ -375,15 +385,17 @@ private:
 	std::vector<cv::Rect> found, found_filtered;	
 	hog.detectMultiScale(videoIn, found, 0, cv::Size(8,8), cv::Size(32,32), 1.05, 2);
 	
+	maskOut = cv::Mat(videoIn.rows, videoIn.cols, CV_8U, 0.0f);
+
 	size_t i, j;
 	for(i=0; i<found.size(); i++)
         {
-            cv::Rect r = found[i];
-            for (j=0; j<found.size(); j++)
+            cv::Rect r = found[i];  
+            for (j=0; j<found.size(); j++)   
                 if (j!=i && (r & found[j])==r)
 		break;
             if (j==found.size())
-                found_filtered.push_back(r);
+                found_filtered.push_back(r);    
         }
         for(i=0; i<found_filtered.size(); i++)
         {
@@ -391,10 +403,12 @@ private:
             r.x += cvRound(r.width*0.1);
 	    r.width = cvRound(r.width*0.8);
 	    r.y += cvRound(r.height*0.06);
-	    r.height = cvRound(r.height*0.9);
-	    rectangle(videoIn, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
+	    r.height = cvRound(r.height*0.9);  
+	    //rectangle(videoIn, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
+	    rectangle(maskOut, r.tl(), r.br(), 255.0f, CV_FILLED);
 	}	
 }
+
   void saveImages(const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
   {
     oss.str("");
