@@ -248,15 +248,8 @@ private:
 	
 	//floatvalue is lentgh in millimeters for the lidar
         dispDepth(depth, depthDisp, 8000.0f);
-	//cv::resize(depthDisp, depthDispResize, cv::Size(320,240),0.0,0.0, cv::INTER_CUBIC);
-	//OUT_INFO(depthDispResize.cols);
         humanDetector(color);
-	OUT_INFO(depthDisp.rows);
-	//OUT_INFO(depthDispHuman.cols);
-        OUT_INFO("Passed human detector");    
-	//cv::resize(color, colorResize, cv::Size(320,240),0.0,0.0, cv::INTER_CUBIC);
 	combine(color, depthDisp, combined);
-        OUT_INFO("Passed combine");    
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
         cv::imshow("Image Viewer", combined);
       }
@@ -340,8 +333,10 @@ private:
   }
 
   void humanDetector(const cv::Mat &videoIn){
-	// initialize Hostogram Of Oriented Graphs detector
+	// initialize Histogram Of Oriented Gradients detector
 	// SVM = support vector machine
+	// detectMultiscale does all the magic. This can be optimized.
+	// search for explanations of the parameters
 	cv::HOGDescriptor hog;
 	hog.setSVMDetector(cv::HOGDescriptor::getDefaultPeopleDetector());
 	
@@ -352,16 +347,12 @@ private:
 	for(i=0; i<found.size(); i++)
         {
             cv::Rect r = found[i];
-                OUT_INFO("NESTED LOOP");    
             for (j=0; j<found.size(); j++)
-                OUT_INFO("NESTED LOOPinner");    
                 if (j!=i && (r & found[j])==r)
 		break;
             if (j==found.size())
                 found_filtered.push_back(r);
-                OUT_INFO("BUSHPACK");    
         }
-	#pragma omp parallel for
         for(i=0; i<found_filtered.size(); i++)
         {
 	    cv::Rect r = found_filtered[i];
@@ -369,9 +360,7 @@ private:
 	    r.width = cvRound(r.width*0.8);
 	    r.y += cvRound(r.height*0.06);
 	    r.height = cvRound(r.height*0.9);
-            OUT_INFO("BEFORE");    
 	    rectangle(videoIn, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
-            OUT_INFO("after");    
 	}	
 }
   void saveImages(const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
