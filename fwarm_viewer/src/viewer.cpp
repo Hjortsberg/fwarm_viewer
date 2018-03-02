@@ -67,13 +67,18 @@ private:
 
   const std::string topicColor, topicDepth;
   const bool useExact, useCompressed;
+	const bool rangeset = false;
+	const int inputrange = 0.0f;
 
   bool updateImage, updateCloud;
   bool save;
   bool running;
-  int safeDistance = 5000.0f;
+
   size_t frame;
   const size_t queueSize;
+
+
+  int safeDistance = 5000.0f;
 
   cv::Mat color, depth;
   cv::Mat cameraMatrixColor, cameraMatrixDepth;
@@ -118,11 +123,12 @@ private:
   std::vector<int> params;
 
 public:
-  Receiver(const std::string &topicColor, const std::string &topicDepth, const bool useExact, const bool useCompressed)
-    : topicColor(topicColor), topicDepth(topicDepth), useExact(useExact), useCompressed(useCompressed),
+  Receiver(const std::string &topicColor, const std::string &topicDepth, const bool useExact, const bool useCompressed,const bool rangeset, const int inputrange)
+    : topicColor(topicColor), topicDepth(topicDepth), useExact(useExact), useCompressed(useCompressed),rangeset(rangeset),inputrange(inputrange),
       updateImage(false), updateCloud(false), save(false), running(false), frame(0), queueSize(5),
       nh("~"), spinner(0), it(nh), mode(IMAGE)
   {
+
     cameraMatrixColor = cv::Mat::zeros(3, 3, CV_64F);
     cameraMatrixDepth = cv::Mat::zeros(3, 3, CV_64F);
     params.push_back(cv::IMWRITE_JPEG_QUALITY);
@@ -149,6 +155,11 @@ private:
   {
     this->mode = mode;
     running = true;
+		if(rangeset){
+			OUT_INFO("rangeset: " << rangeset);
+			OUT_INFO("inputrange: " << inputrange);
+			this->safeDistance=inputrange;
+		}
 
   // create options for subscriber and pass pointer to our custom queue
   	//ros::SubscribeOptions subveloptions =
@@ -258,8 +269,9 @@ private:
     readImage(imageColor, color);
     readImage(imageDepth, depth);
 
-
-	this->safeDistance = (vel->velocity*12000.0f)/50;
+		if(not this->rangeset){
+			this->safeDistance = (vel->velocity*12000.0f)/50;
+		}
     // IR image input
     if(color.type() == CV_16U)
     {
@@ -278,7 +290,7 @@ private:
 
   void imageViewer()
   {
-    cv::Mat color, depth, depthDisp, combined;
+    cv::Mat color, depth, depthDisp, combined, depthResize, eightBitDepth, detectMask;
     std::chrono::time_point<std::chrono::high_resolution_clock> start, now;
     double fps = 0;
     size_t frameCount = 0;
@@ -289,12 +301,11 @@ private:
     const int lineText = 1;
     const int font = cv::FONT_HERSHEY_SIMPLEX;
 
-
   //Debugging windows
     //cv::namedWindow("Merged feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
     //cv::namedWindow("Lidar feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
     //cv::namedWindow("Image feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
-
+    //cv::namedWindow("Mono feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
 	//cv::WindowFlags::WINDOWS_KEEPRATIO
     cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
     //cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
@@ -324,20 +335,33 @@ private:
           frameCount = 0;
         }
 
+//<<<<<<< HEAD:fwarm_viewer/src/viewer.cpp
 
-        dispDepth(depth, depthDisp, this->safeDistance);
-		//dispDepth(depth, depthDisp, 12000.0f);
-		resize(640,480,color,depthDisp,color,depthDisp);
+//        dispDepth(depth, depthDisp, );
+//		resize(640,480,color,depthDisp,color,depthDisp);
 
-	
+
+//>>>>>>> 9cd434b50a405ffa3696ea6007f29059ad12ca38:src/viewer.cpp
 	//floatvalue is lentgh in millimeters for the lidar
-        //dispDepth(depth, depthDisp, 8000.0f);
-        combine(color, depthDisp, combined);
+        dispDepth(depth, depthDisp, eightBitDepth, this->safeDistance);
+	humanDetector(color, detectMask);
+	//cv::resize(depth,depthResize,cv::Size(640,480),0.0,0.0,cv::INTER_CUBIC);
+	//resize(640,480,color,depthDisp,color,depthDisp);
+        combine(color, depthDisp, eightBitDepth, detectMask, combined);
+        //combined = color;
+
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
         //cv::imshow("Merged feed Viewer", combined);
-        cv::imshow("Image feed Viewer", color);
+//<<<<<<< HEAD:fwarm_viewer/src/viewer.cpp
+//        cv::imshow("Image feed Viewer", color);
         cv::imshow("Lidar feed Viewer", depthDisp);
+//        cv::imshow("Image Viewer", combined);
+//=======
+        //cv::imshow("Image feed Viewer", color);
+        //cv::imshow("Lidar feed Viewer", depthDisp);
+	cv::imshow("Mono feed Viewer", detectMask);
         cv::imshow("Image Viewer", combined);
+//>>>>>>> 9cd434b50a405ffa3696ea6007f29059ad12ca38:src/viewer.cpp
       }
 
       int key = cv::waitKey(1);
@@ -396,7 +420,7 @@ private:
     }
   }
 
-  void dispDepth(const cv::Mat &in, cv::Mat &out, const float maxValue)
+  void dispDepth(const cv::Mat &in, cv::Mat &out, cv::Mat &monoOut, const float maxValue)
   {
     cv::Mat tmp = cv::Mat(in.rows, in.cols, CV_8U);
     const uint32_t maxInt = 255;
@@ -412,32 +436,75 @@ private:
         *itO = (uint8_t)std::min((*itI * maxInt / maxValue), 255.0f);
       }
     }
-
-    cv::applyColorMap(tmp, out, cv::COLORMAP_JET);
+	monoOut = tmp;
+    cv::applyColorMap(tmp, out, cv::COLORMAP_AUTUMN);
   }
   
   /* Function takes in color, depthDisp,combined, (color according to comment above) */
-  void combine(const cv::Mat &inC, const cv::Mat &inD, cv::Mat &out)
+  void combine(const cv::Mat &inC, const cv::Mat &inD, const cv::Mat &inM, const cv::Mat &inH, cv::Mat &out)
   {
     out = cv::Mat(inC.rows, inC.cols, CV_8UC3);
 
     #pragma omp parallel for
-    for(int r = 0; r < inC.rows; ++r)
-    {
+    for(int r = 0; r < inC.rows; ++r){
       const cv::Vec3b
       *itC = inC.ptr<cv::Vec3b>(r),
-       *itD = inD.ptr<cv::Vec3b>(r);
+      *itD = inD.ptr<cv::Vec3b>(r);
+	  	const uint8_t 
+			*itM = inM.ptr<uint8_t>(r),
+			*itH = inH.ptr<uint8_t>(r);
+	  
       cv::Vec3b *itO = out.ptr<cv::Vec3b>(r);
 
-      for(int c = 0; c < inC.cols; ++c, ++itC, ++itD, ++itO)
-      {
-        itO->val[0] = (itC->val[0] + itD->val[0]) >> 1;
-        itO->val[1] = (itC->val[1] + itD->val[1]) >> 1;
-        itO->val[2] = (itC->val[2] + itD->val[2]) >> 1;
-      }
+      for(int c = 0; c < inC.cols; ++c, ++itC, ++itD, ++itO, ++itM, ++itH){
+				if(*itM > 0.0f && *itM < 255.0f && *itH == 255.0f){
+					itO->val[0] = (itC->val[0] + itD->val[0]) >> 1;
+				  itO->val[1] = (itC->val[1] + itD->val[1]) >> 1;
+				  itO->val[2] = (itC->val[2] + itD->val[2]) >> 1;
+				}
+				else{
+					itO->val[0] = itC->val[0];
+					itO->val[1] = itC->val[1];
+					itO->val[2] = itC->val[2];
+				}
+    	}
     }
   }
 
+  void humanDetector(const cv::Mat &videoIn, cv::Mat &maskOut){
+	// initialize Histogram Of Oriented Gradients detector
+	// SVM = support vector machine
+	// detectMultiscale does all the magic. This can be optimized.
+	// search for explanations of the parameters
+	cv::HOGDescriptor hog;
+	hog.setSVMDetector(cv::HOGDescriptor::getDefaultPeopleDetector());
+	
+	std::vector<cv::Rect> found, found_filtered;	
+	hog.detectMultiScale(videoIn, found, 0, cv::Size(8,8), cv::Size(32,32), 1.05, 2);
+	
+	maskOut = cv::Mat(videoIn.rows, videoIn.cols, CV_8U, 0.0f);
+
+	size_t i, j;
+	for(i=0; i<found.size(); i++)
+        {
+            cv::Rect r = found[i];  
+            for (j=0; j<found.size(); j++)   
+                if (j!=i && (r & found[j])==r)
+		break;
+            if (j==found.size())
+                found_filtered.push_back(r);    
+        }
+        for(i=0; i<found_filtered.size(); i++)
+        {
+	    cv::Rect r = found_filtered[i];
+            r.x += cvRound(r.width*0.1);
+	    r.width = cvRound(r.width*0.8);
+	    r.y += cvRound(r.height*0.06);
+	    r.height = cvRound(r.height*0.9);  
+	    //rectangle(videoIn, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
+	    rectangle(maskOut, r.tl(), r.br(), 255.0f, CV_FILLED);
+	}	
+}
 
   void saveImages(const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
   {
@@ -518,6 +585,10 @@ int main(int argc, char **argv)
   bool useCompressed = false;
   Receiver::Mode mode = Receiver::IMAGE;
   bool firstDefined = false;
+
+	int inputrange=0.0f;
+	bool rangeset=false;
+
   
   for(size_t i = 1; i < (size_t)argc; ++i)
   {
@@ -568,6 +639,14 @@ int main(int argc, char **argv)
     {
       useCompressed = true;
     }
+		else if(rangeset) 
+		{
+			inputrange=std::stoi(param);
+		}
+		else if(param == "setrange" ) 
+		{
+			rangeset=true;
+		}
     else
     {
       ns = param;
@@ -583,7 +662,7 @@ if(firstDefined==true){
   OUT_INFO("topic color: " FG_CYAN << topicColor << NO_COLOR);
   OUT_INFO("topic depth: " FG_CYAN << topicDepth << NO_COLOR);
 
-  Receiver receiver(topicColor, topicDepth, useExact, useCompressed);
+  Receiver receiver(topicColor, topicDepth, useExact, useCompressed,rangeset,inputrange);
 
   OUT_INFO("starting receiver...");
   receiver.run(mode);

@@ -19,6 +19,8 @@ Date      | Man-Hours | Category |  Participants
 18-02-07  | 15        | Planning presentation |  ALL
 18-02-08  | 7         | Planning presentation |  ALL
 18-02-15  | 10        | Sprintplanning and development | E, G, P, D
+18-02-19  | 10        | Break out package and removal of pcl libraries  | P
 18-02-20  | 1         | Passing parameters as topic paths | J
 18-02-21  | 2,5       | Passing parameters as topic paths | J
+18-02-22  | 6         | Passing parameters as topic paths and planning for standalone sensor spoofing node  | J, P
 
