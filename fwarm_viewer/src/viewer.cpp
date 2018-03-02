@@ -86,24 +86,12 @@ private:
 
   typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo,sensor_sim::sensor_data> ExactSyncPolicy;
 
-
-//  typedef message_filters::sync_policies::ExactTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo> ExactSyncPolicy;
-
-
-
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo,sensor_sim::sensor_data> ApproximateSyncPolicy;
-
-
-//  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo> ApproximateSyncPolicy;
 
   ros::NodeHandle nh;
 
   //Spoof node handle, simulates sensor data
   ros::NodeHandle snh;
-  // define user callback queue
-  //ros::CallbackQueue vel_queue;
-
-  //std::thread imageViewerThread;
 
   ros::AsyncSpinner spinner;
   image_transport::ImageTransport it;
@@ -161,19 +149,6 @@ private:
 			this->safeDistance=inputrange;
 		}
 
-  // create options for subscriber and pass pointer to our custom queue
-  	//ros::SubscribeOptions subveloptions =
-    //ros::SubscribeOptions::create<std_msgs::String>(
-     // "velocity", // topic name
-     // 10, // queue length
-     // &Receiver::VelocityCallback, // callback
-     // ros::VoidPtr(), // tracked object, we don't need one thus NULL
-     // &vel_queue // pointer to callback queue object
-    //);
-
-	//snh.subscribe<sensor_msgs::CameraInfo>(subveloptions);
-	//snh.subscribe("velocity", 10, &Receiver::VelocityCallback, this);
-
     std::string topicCameraInfoColor = topicColor.substr(0, topicColor.rfind('/')) + "/camera_info";
     std::string topicCameraInfoDepth = topicDepth.substr(0, topicDepth.rfind('/')) + "/camera_info";
 
@@ -187,26 +162,17 @@ private:
 
 
 	  subVelocity = new message_filters::Subscriber<sensor_sim::sensor_data> (snh, "wheeler_velocity", 10);
-	  //subVelocity = new message_filters::Subscriber<std_msgs::Header> (snh, "spoof", 10);
-	//subVelocity = new message_filters::Subscriber<std_msgs::Int32> (snh, "spoof", 10);
-	//subVelocity->registerCallback(boost::bind(&Receiver::VelocityCallback, this, _1,_2,_3,_4));
 	
 
     if(useExact)
     {
       syncExact = new message_filters::Synchronizer<ExactSyncPolicy>(ExactSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth, *subVelocity);
       syncExact->registerCallback(boost::bind(&Receiver::callback, this, _1, _2, _3, _4,_5));
-
-//      syncExact = new message_filters::Synchronizer<ExactSyncPolicy>(ExactSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth);
-//      syncExact->registerCallback(boost::bind(&Receiver::callback, this, _1, _2, _3, _4));
     }
     else
     {
       syncApproximate = new message_filters::Synchronizer<ApproximateSyncPolicy>(ApproximateSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth, *subVelocity);
       syncApproximate->registerCallback(boost::bind(&Receiver::callback, this, _1, _2, _3, _4,_5));
-
-//      syncApproximate = new message_filters::Synchronizer<ApproximateSyncPolicy>(ApproximateSyncPolicy(queueSize), *subImageColor, *subImageDepth, *subCameraInfoColor, *subCameraInfoDepth);
-//     syncApproximate->registerCallback(boost::bind(&Receiver::callback, this, _1, _2, _3, _4));
     }
 
 
@@ -257,11 +223,6 @@ private:
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
                 const sensor_msgs::CameraInfo::ConstPtr cameraInfoColor, const sensor_msgs::CameraInfo::ConstPtr cameraInfoDepth,  const sensor_sim::sensor_data::ConstPtr vel)
   {
-
-//  void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
-//                const sensor_msgs::CameraInfo::ConstPtr cameraInfoColor, const sensor_msgs::CameraInfo::ConstPtr cameraInfoDepth)
-//  {
-//    OUT_INFO("This is callback calling");
     cv::Mat color, depth;
 
     readCameraInfo(cameraInfoColor, cameraMatrixColor);
@@ -307,7 +268,9 @@ private:
     //cv::namedWindow("Image feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
     //cv::namedWindow("Mono feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
 	//cv::WindowFlags::WINDOWS_KEEPRATIO
+
     cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
+
     //cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 
     oss << "starting...";
@@ -335,33 +298,17 @@ private:
           frameCount = 0;
         }
 
-//<<<<<<< HEAD:fwarm_viewer/src/viewer.cpp
-
-//        dispDepth(depth, depthDisp, );
-//		resize(640,480,color,depthDisp,color,depthDisp);
-
-
-//>>>>>>> 9cd434b50a405ffa3696ea6007f29059ad12ca38:src/viewer.cpp
 	//floatvalue is lentgh in millimeters for the lidar
         dispDepth(depth, depthDisp, eightBitDepth, this->safeDistance);
-	humanDetector(color, detectMask);
-	//cv::resize(depth,depthResize,cv::Size(640,480),0.0,0.0,cv::INTER_CUBIC);
+				humanDetector(color, detectMask);
+
 	//resize(640,480,color,depthDisp,color,depthDisp);
         combine(color, depthDisp, eightBitDepth, detectMask, combined);
-        //combined = color;
 
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
-        //cv::imshow("Merged feed Viewer", combined);
-//<<<<<<< HEAD:fwarm_viewer/src/viewer.cpp
-//        cv::imshow("Image feed Viewer", color);
         cv::imshow("Lidar feed Viewer", depthDisp);
-//        cv::imshow("Image Viewer", combined);
-//=======
-        //cv::imshow("Image feed Viewer", color);
-        //cv::imshow("Lidar feed Viewer", depthDisp);
-	cv::imshow("Mono feed Viewer", detectMask);
+				cv::imshow("Mono feed Viewer", detectMask);	
         cv::imshow("Image Viewer", combined);
-//>>>>>>> 9cd434b50a405ffa3696ea6007f29059ad12ca38:src/viewer.cpp
       }
 
       int key = cv::waitKey(1);
@@ -639,6 +586,8 @@ int main(int argc, char **argv)
     {
       useCompressed = true;
     }
+
+//START: param checks if user sets range manually
 		else if(rangeset) 
 		{
 			inputrange=std::stoi(param);
@@ -647,6 +596,7 @@ int main(int argc, char **argv)
 		{
 			rangeset=true;
 		}
+//END: param checks if user sets range manually
     else
     {
       ns = param;
