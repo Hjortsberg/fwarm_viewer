@@ -90,19 +90,21 @@ private:
 
   ros::NodeHandle nh;
 
-  //Spoof node handle, simulates sensor data
+  //Sensor node handle, simulates sensor data
   ros::NodeHandle snh;
 
+//Asynchoros spinner for mutlithreaded spinning i.e when callbacks are allowed to run, defaults to use as many threads as the hardware allows
   ros::AsyncSpinner spinner;
+//Image_transport subrcibers is the equivalent of using message filters but for ros image msgs
   image_transport::ImageTransport it;
   image_transport::SubscriberFilter *subImageColor, *subImageDepth;
+//Message_filters subrcibers, from ros wiki  "A message filter is defined as something which a message arrives into and may or may not be spit back out of at a later point in time.". Used to be able to let through only msgs that are synched.
   message_filters::Subscriber<sensor_msgs::CameraInfo> *subCameraInfoColor, *subCameraInfoDepth;
+  message_filters::Subscriber<sensor_sim::sensor_data> *subVelocity;
   
-
+//Message_filters synchronizer with exact and approximate policies, from ros wiki "The Synchronizer filter synchronizes incoming channels by the timestamps contained in their headers, and outputs them in the form of a single callback that takes the same number of channels."
   message_filters::Synchronizer<ExactSyncPolicy> *syncExact;
   message_filters::Synchronizer<ApproximateSyncPolicy> *syncApproximate;
-
-  message_filters::Subscriber<sensor_sim::sensor_data> *subVelocity;
 
   std::thread imageViewerThread;
   Mode mode;
@@ -155,13 +157,10 @@ private:
     image_transport::TransportHints hints(useCompressed ? "compressed" : "raw");
     subImageColor = new image_transport::SubscriberFilter(it, topicColor, queueSize, hints);
     subImageDepth = new image_transport::SubscriberFilter(it, topicDepth, queueSize, hints);
+	  subVelocity = new message_filters::Subscriber<sensor_sim::sensor_data> (snh, "wheeler_velocity", 10);
     subCameraInfoColor = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoColor, queueSize);
     subCameraInfoDepth = new message_filters::Subscriber<sensor_msgs::CameraInfo>(nh, topicCameraInfoDepth, queueSize);
-	
 
-
-
-	  subVelocity = new message_filters::Subscriber<sensor_sim::sensor_data> (snh, "wheeler_velocity", 10);
 	
 
     if(useExact)
@@ -334,11 +333,10 @@ private:
 //Resize(outputdwidth,outputheight,input_imagecolor,input_imagedepth,output_imagecolor,output_imagedepth)
   void resize(int width, int height,const cv::Mat &inC, const cv::Mat &inD, cv::Mat &outC,cv::Mat &outD)
   {
-
+	// For enlarging use interpolation INTER_CUBIC
 	if(width*height>inC.cols*inC.rows){
 		//resize(InputArray src, OutputArray dst, Size dsize, double fx=0, double fy=0, int interpolation )
-		//fx,fy = scaling parameters see opencv doc resize
-		// For enlarging use interpolation INTER_CUBIC
+		//fx,fy = scaling parameters see opencv doc resize	
 		cv::resize(inC,outC,cv::Size(width,height),0.0,0.0,cv::INTER_CUBIC);
 	}else{
 		// For shrinking use interpolation INTER_AREA
