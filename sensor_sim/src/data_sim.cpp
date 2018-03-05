@@ -10,22 +10,23 @@ int main(int argc, char **argv)
 
   ros::Publisher Spoof_pub = n.advertise<sensor_sim::sensor_data>("wheeler_velocity", 10);
 
-  ros::Rate loop_rate(100);
+  ros::Rate loop_rate(7);
 
 	bool countup=true;
   double count = 1.0;
+  double step = 1.0;
   while (ros::ok())
   {
 	sensor_sim::sensor_data vel;
 	if(countup){
-		count+=0.05;
+		count+=step;
 	
 		if(count>50){
 		count=50.0;
 		countup=false;	
 		}
 	}else{
-		count-=0.05;
+		count-=step;
 	
 		if(count<1.0){
 		count=1.0;
