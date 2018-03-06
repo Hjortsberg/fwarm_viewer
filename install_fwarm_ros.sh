@@ -55,6 +55,9 @@ echo "Install intel OpenCL drivers, if other GPU, please refer to lib freenect2 
 sudo apt-get install --yes beignet-dev
 
 echo "Install VAAPI, for intel"
+sudo apt-get install --yes i965-va-driver
+
+echo "Install libva for intel"
 sudo apt-get install --yes libva-dev libjpeg-dev
 
 echo "Install OpeNI2"
