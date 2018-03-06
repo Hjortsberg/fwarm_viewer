@@ -146,8 +146,7 @@ private:
     this->mode = mode;
     running = true;
 		if(rangeset){
-			OUT_INFO("rangeset: " << rangeset);
-			OUT_INFO("inputrange: " << inputrange);
+			OUT_INFO("Maxrange(mm): " << inputrange);
 			this->safeDistance=inputrange;
 		}
 
@@ -212,13 +211,6 @@ private:
     running = false;
   }
 
-	//sets safedistance to certain value based on velocity
-  void VelocityCallback(const sensor_msgs::CameraInfo &vel){
-	//Max velocity is assumed to be 50 km/h
-    OUT_INFO("This is velocity calling");
-	this->safeDistance = (vel.width*12000.0f)/50;
-	}
-
   void callback(const sensor_msgs::Image::ConstPtr imageColor, const sensor_msgs::Image::ConstPtr imageDepth,
                 const sensor_msgs::CameraInfo::ConstPtr cameraInfoColor, const sensor_msgs::CameraInfo::ConstPtr cameraInfoDepth,  const sensor_sim::sensor_data::ConstPtr vel)
   {
@@ -261,16 +253,7 @@ private:
     const int lineText = 1;
     const int font = cv::FONT_HERSHEY_SIMPLEX;
 
-  //Debugging windows
-    //cv::namedWindow("Merged feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
-    //cv::namedWindow("Lidar feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
-    //cv::namedWindow("Image feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
-    //cv::namedWindow("Mono feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
-	//cv::WindowFlags::WINDOWS_KEEPRATIO
-
     cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
-
-    //cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 
     oss << "starting...";
 
@@ -292,7 +275,8 @@ private:
         {
           fps = frameCount / elapsed;
           oss.str("");
-          oss << "fps: " << fps << " ( " << elapsed / frameCount * 1000.0 << " ms)   " << this->safeDistance;
+          oss << "fps: " << fps << " ( " << elapsed / frameCount * 1000.0 << " ms)   Maxdistance: " << this->safeDistance/1000.0 
+					<< " m Velocity: " << this->safeDistance*50/12000.0 << " km/h";
           start = now;
           frameCount = 0;
         }
@@ -305,8 +289,6 @@ private:
         combine(color, depthDisp, eightBitDepth, detectMask, combined);
 
         cv::putText(combined, oss.str(), pos, font, sizeText, colorText, lineText, CV_AA);
-        cv::imshow("Lidar feed Viewer", depthDisp);
-				cv::imshow("Mono feed Viewer", detectMask);	
         cv::imshow("Image Viewer", combined);
       }
 
@@ -497,12 +479,16 @@ private:
 void help(const std::string &path)
 {
   std::cout << path << FG_BLUE " [options]" << std::endl
-            << FG_GREEN "  name" NO_COLOR ": " FG_YELLOW "'any string'" NO_COLOR " equals to the kinect2_bridge topic base name" << std::endl
-            << FG_GREEN "  mode" NO_COLOR ": " FG_YELLOW "'qhd'" NO_COLOR ", " FG_YELLOW "'hd'" NO_COLOR ", " FG_YELLOW "'sd'" NO_COLOR " or " FG_YELLOW "'ir'" << std::endl
-            << FG_GREEN "  visualization" NO_COLOR ": " FG_YELLOW "'image'" NO_COLOR ", " FG_YELLOW "'cloud'" NO_COLOR " or " FG_YELLOW "'both'" << std::endl
+            << FG_GREEN "  name" NO_COLOR ": " FG_YELLOW "'any string'" NO_COLOR " equals to the topic namespace" << std::endl
+            << FG_GREEN "  image topic path" NO_COLOR ": " FG_YELLOW "'first string beginning with /'" NO_COLOR " equals to the full image topic path" << std::endl
+            << FG_GREEN "  depth topic path" NO_COLOR ": " FG_YELLOW "'second string beginning with /'" NO_COLOR " equals to the full depth topic path" << std::endl
+            << FG_GREEN "  kinect mode" NO_COLOR ": " FG_YELLOW "'qhd'" NO_COLOR ", " FG_YELLOW "'hd'" NO_COLOR ", " FG_YELLOW "'sd'" NO_COLOR " or " FG_YELLOW "'ir'" << std::endl
             << FG_GREEN "  options" NO_COLOR ":" << std::endl
             << FG_YELLOW "    'compressed'" NO_COLOR " use compressed instead of raw topics" << std::endl
-            << FG_YELLOW "    'approx'" NO_COLOR " use approximate time synchronization" << std::endl;
+            << FG_YELLOW "    'approx'" NO_COLOR " use approximate time synchronization" << std::endl
+						<< FG_YELLOW "    'setrange x'" NO_COLOR " sets the maxrange to x where x is distance in mm " << std::endl;
+
+
 }
 
 int main(int argc, char **argv)
@@ -516,7 +502,7 @@ int main(int argc, char **argv)
   }
 #endif
 
-  ros::init(argc, argv, "fawrm_viewer", ros::init_options::AnonymousName);
+  ros::init(argc, argv, "fwarm_viewer", ros::init_options::AnonymousName);
 
   if(!ros::ok())
   {
@@ -584,17 +570,14 @@ int main(int argc, char **argv)
     {
       useCompressed = true;
     }
-
-//START: param checks if user sets range manually
-		else if(rangeset) 
-		{
-			inputrange=std::stoi(param);
-		}
-		else if(param == "setrange" ) 
-		{
-			rangeset=true;
-		}
-//END: param checks if user sets range manually
+	else if(rangeset) 
+	{
+		inputrange=std::stoi(param);
+	}
+	else if(param == "setrange" ) 
+	{
+		rangeset=true;
+	}
     else
     {
       ns = param;
