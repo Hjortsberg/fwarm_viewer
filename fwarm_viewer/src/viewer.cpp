@@ -254,6 +254,7 @@ private:
     const int font = cv::FONT_HERSHEY_SIMPLEX;
 
     cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
+    cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
 
     oss << "starting...";
 
