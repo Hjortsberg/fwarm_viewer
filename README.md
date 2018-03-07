@@ -81,7 +81,11 @@ If you use other gpu than Intel, please refer to https://github.com/OpenKinect/l
 ```
 sudo apt-get install beignet-dev
 ```
-* Install VAAPI
+* Install VAAPI driver
+```
+sudo apt-get install i965-va-driver
+```
+* install wrapper for VAAPI
 ```
 sudo apt-get install libva-dev libjpeg-dev
 ```
@@ -115,19 +119,33 @@ cd iai_kinect2
 cd kinect2_registration
 vim +56 CMakeLists.txt
 ```
-* Paste the following line
+* Paste the following line, you do this in vim by pressing i, [ctrl + shift + v] then esc.
 ```
 add_definitions( -fexceptions )
 ```
-Dont forget to :wq.
+Dont forget to :wq (vim command for write and quit).
 ```
 cd ..
 rosdep install -r --from-paths .
 cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE="kinetic"
 ```  
-
+install a usbcam package (optional)
 To get supported ```usb_cam``` resolutions and framerates: 
 ```
 v4l2-ctl --list-formats-ext
 ```
+
+## Usage
+You now have a complete development environment.
+For notes on how to test your kinect installation see https://github.com/OpenKinect/libfreenect2/.
+Remember to connect it to a USB3.0 controller with nothing else plugged in to it, libfreenect lists compatible controllers.
+
+Start a shell
+1. `roscore` you must always have a roscore running when wanting to interact via ROS.
+Start a new 
+1. `cd ~/catkin_ws` Navigate to the workspace
+2. `source devel/setup.bash` source the shell, if your using zsh, swap .bash to .zsh
+3. `rosrun kinect2_bridge kinect2_bridge`Start the kinect bridge.
+Start a third shell
+
