@@ -27,8 +27,13 @@
 #include <chrono>
 
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/utility.hpp>
+#include "opencv2/cudaobjdetect.hpp"
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/core/core.hpp>
+//#include <opencv2/gpu/gpu.hpp>
+#include <opencv2/core/cuda.hpp>
+#include <opencv2/cudaimgproc.hpp>
 
 #include <ros/ros.h>
 #include <ros/spinner.h>
@@ -222,7 +227,7 @@ private:
     //cv::namedWindow("Merged feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
     //cv::namedWindow("Lidar feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
     //cv::namedWindow("Image feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
-    //cv::namedWindow("Mono feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
+    cv::namedWindow("Mono feed Viewer", cv::WindowFlags::WINDOW_NORMAL|cv::WindowFlags::WINDOW_KEEPRATIO);
 	//cv::WindowFlags::WINDOWS_KEEPRATIO
     cv::namedWindow("Image Viewer", cv::WindowFlags::WINDOW_NORMAL);
     cv::setWindowProperty("Image Viewer", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
@@ -265,7 +270,7 @@ private:
         //cv::imshow("Image feed Viewer", color);
         //cv::imshow("Lidar feed Viewer", depthDisp);
 	cv::imshow("Mono feed Viewer", detectMask);
-        //cv::imshow("Image Viewer", combined);
+        cv::imshow("Image Viewer", combined);
       }
 
       int key = cv::waitKey(1);
@@ -379,15 +384,46 @@ private:
 	// SVM = support vector machine
 	// detectMultiscale does all the magic. This can be optimized.
 	// search for explanations of the parameters
-	cv::HOGDescriptor hog;
-	hog.setSVMDetector(cv::HOGDescriptor::getDefaultPeopleDetector());
+	cv::Size win_stride(8,8);
+	cv::Size win_size(48, 48*2);
+	cv::Size block_size(16,16);
+	cv::Size block_stride(8,8);
+	cv::Size cell_size(8,8);
+	int nbins = 9;
+	
+	int nlevels = 13;
+	int scale = 1.05;
+	int gr_threshold = 8;
+	int hit_threshold = 1.4;
+//	int hit_threshold_auto = true;
+	
+	cv::Ptr<cv::cuda::HOG> gpu_hog = cv::cuda::HOG::create(win_size, block_size, block_stride, cell_size, nbins);
+//HOGdescriptor might just be referenced as HOG in cuda impolementation
+	//hog.setSVMDetector(cv::cuda::HOGDescriptor::getDefaultPeopleDetector());
+	cv::Mat detector = gpu_hog->getDefaultPeopleDetector();
+	gpu_hog->setSVMDetector(detector);
+	
+	cv::cuda::GpuMat gpu_img;
+	gpu_img.upload(videoIn);
 	
 	std::vector<cv::Rect> found, found_filtered;	
-	hog.detectMultiScale(videoIn, found, 0, cv::Size(8,8), cv::Size(32,32), 1.05, 2);
+	
+	gpu_hog->setNumLevels(nlevels);
+	gpu_hog->setHitThreshold(hit_threshold);
+	gpu_hog->setWinStride(win_stride);
+	gpu_hog->setScaleFactor(scale);
+	gpu_hog->setGroupThreshold(gr_threshold);
+	gpu_hog->detectMultiScale(gpu_img, found);
+	
+	//hog.detectMultiScale(videoIn, found, 0, cv::Size(8,8), cv::Size(32,32), 1.05, 2);
 	
 	maskOut = cv::Mat(videoIn.rows, videoIn.cols, CV_8U, 0.0f);
 
-	size_t i, j;
+	for(size_t i = 0; i< found.size(); i++){
+		cv::Rect r = found[i];
+		rectangle(maskOut, r.tl(), r.br(), 255.0f, CV_FILLED);
+	}
+	/*size_t i, j;
 	for(i=0; i<found.size(); i++)
         {
             cv::Rect r = found[i];  
@@ -406,7 +442,7 @@ private:
 	    r.height = cvRound(r.height*0.9);  
 	    //rectangle(videoIn, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
 	    rectangle(maskOut, r.tl(), r.br(), 255.0f, CV_FILLED);
-	}	
+	}*/	
 }
 
   void saveImages(const cv::Mat &color, const cv::Mat &depth, const cv::Mat &depthColored)
